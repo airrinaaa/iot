@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "Observation",
+  "namespace": "ua.edu.ukma.rychok.iot.Observation",
+  "fields": [
+    {"name": "thing_id", "type": "string"},
+    {"name": "datastream_id", "type": "string"},
+    {"name": "metric", "type": "string"},
+    {"name": "seq", "type": "int"},
+    {"name": "event_time", "type": "string"},
+    {"name": "ingestion_time", "type": "string"},
+    {"name": "value", "type": ["double", "string", "int"]}
+  ]
+}
