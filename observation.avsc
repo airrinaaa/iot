@@ -9,6 +9,6 @@
     {"name": "seq", "type": "int"},
     {"name": "event_time", "type": "string"},
     {"name": "ingestion_time", "type": "string"},
-    {"name": "value", "type": ["double", "string", "int"]}
+    {"name": "value", "type": ["double", "string", "int", "boolean"]}
   ]
 }

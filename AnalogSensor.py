@@ -1,5 +1,3 @@
-from scipy.constants import value
-
 from Sensor import Sensor
 import random
 from uuid import UUID

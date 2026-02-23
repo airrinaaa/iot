@@ -11,13 +11,13 @@ class AlarmSensor(Sensor):
         self.cooldown = cooldown
         self.timer = 0
 
-    def _get_value(self) -> int:
+    def _get_value(self) -> bool:
         if self.timer > 0:
             self.timer -= 1
-            return 0
+            return False
         else:
             if random.random() < self.trigger_prob:
                 self.timer = self.cooldown
-                return 1
+                return True
             else:
-                return 0
+                return False
