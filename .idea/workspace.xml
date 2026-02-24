@@ -4,12 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9984b7c6-8522-4df3-9107-f2a69f0610c3" name="Changes" comment="sensors and sending messages">
+    <list default="true" id="9984b7c6-8522-4df3-9107-f2a69f0610c3" name="Changes" comment="start window data processing">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AlarmSensor.py" beforeDir="false" afterPath="$PROJECT_DIR$/AlarmSensor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CollectAll.py" beforeDir="false" afterPath="$PROJECT_DIR$/CollectAll.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/observation.avsc" beforeDir="false" afterPath="$PROJECT_DIR$/observation.avsc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/processor.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -100,7 +97,7 @@
       <workItem from="1771621922052" duration="3836000" />
       <workItem from="1771628320121" duration="1355000" />
       <workItem from="1771779712071" duration="8488000" />
-      <workItem from="1771869086901" duration="10157000" />
+      <workItem from="1771869086901" duration="14241000" />
     </task>
     <task id="LOCAL-00001" summary="sensors and sending messages">
       <option name="closed" value="true" />
@@ -110,7 +107,15 @@
       <option name="project" value="LOCAL" />
       <updated>1771869211139</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="start window data processing">
+      <option name="closed" value="true" />
+      <created>1771889886421</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1771889886421</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -118,14 +123,15 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="sensors and sending messages" />
-    <option name="LAST_COMMIT_MESSAGE" value="sensors and sending messages" />
+    <MESSAGE value="start window data processing" />
+    <option name="LAST_COMMIT_MESSAGE" value="start window data processing" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Iot$receiver.coverage" NAME="receiver Coverage Results" MODIFIED="1771888802755" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$main.coverage" NAME="main Coverage Results" MODIFIED="1771888810330" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$processor.coverage" NAME="processor Coverage Results" MODIFIED="1771888795431" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$receiver.coverage" NAME="receiver Coverage Results" MODIFIED="1771889402049" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$main.coverage" NAME="main Coverage Results" MODIFIED="1771889410226" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$processor.coverage" NAME="processor Coverage Results" MODIFIED="1771889404759" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$iot_simulator.coverage" NAME="iot_simulator Coverage Results" MODIFIED="1771168943822" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$Device.coverage" NAME="Device Coverage Results" MODIFIED="1771270005023" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$bridge.coverage" NAME="bridge Coverage Results" MODIFIED="1771888805451" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$bridge.coverage" NAME="bridge Coverage Results" MODIFIED="1771889407199" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
