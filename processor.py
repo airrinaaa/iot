@@ -1,62 +1,163 @@
+import base64
+from datetime import datetime, timezone
 import json
 import os
 import io
-from datetime import datetime
 
+from fastavro import parse_schema, schemaless_reader
 from pyflink.common import Duration
 from pyflink.common.time import Time
-from fastavro import parse_schema, schemaless_reader
 from pyflink.datastream import StreamExecutionEnvironment
-from pyflink.datastream.connectors.kafka import KafkaSource, KafkaOffsetsInitializer
-
+from pyflink.datastream.connectors.kafka import (
+    KafkaSource,
+    KafkaOffsetsInitializer,
+    KafkaSink,
+    KafkaRecordSerializationSchema,
+)
+from pyflink.datastream.connectors import DeliveryGuarantee
 from pyflink.common.watermark_strategy import WatermarkStrategy
 from pyflink.datastream.window import TumblingEventTimeWindows
 from pyflink.common.serialization import ByteArraySchema
 
-
 from CollectAll import CollectAll
 from SensorTimestampAssigner import SensorTimestampAssigner
+from config import env
 
-env = StreamExecutionEnvironment.get_execution_environment()
-env.set_parallelism(1)
+KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
+SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data")
+PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data")
+KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "iot_processor_v1")
+
+SCHEMA_PATH = env("SCHEMA_PATH", "observation.avsc")
+DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter")
+flink_env = StreamExecutionEnvironment.get_execution_environment()
+flink_env.set_parallelism(1)
 current_dir = os.getcwd()
 jar_path = f"file://{os.getcwd()}/jars/flink-sql-connector-kafka-4.0.1-2.0.jar"
 
-env.add_jars(jar_path)
+flink_env.add_jars(jar_path)
 
 print(f"Середовище налаштовано. JAR завантажено: {jar_path}")
 
 
 source = KafkaSource.builder() \
-    .set_bootstrap_servers("localhost:9092") \
-    .set_topics("sensors_data") \
-    .set_group_id(f"group_{datetime.now().timestamp()}") \
+    .set_bootstrap_servers(KAFKA_BOOTSTRAP) \
+    .set_topics(SOURCE_TOPIC) \
+    .set_group_id(KAFKA_GROUP_ID) \
     .set_starting_offsets(KafkaOffsetsInitializer.latest()) \
     .set_value_only_deserializer(ByteArraySchema()) \
     .build()
 
-ds = env.from_source(source, WatermarkStrategy.no_watermarks(), "Kafka bridge")
+ds = flink_env.from_source(source, WatermarkStrategy.no_watermarks(), "Kafka bridge")
+
+def is_iso_datetime(s: str) -> bool:
+    try:
+        datetime.fromisoformat(s)
+        return True
+    except Exception:
+        return False
+
+def validate_record(record: dict) -> tuple[bool, str]:
+    if "thing_id" not in record or not isinstance(record["thing_id"], str) or not record["thing_id"].strip():
+        return False, "invalid_thing_id"
+
+    if "datastream_id" not in record or not isinstance(record["datastream_id"], str) or not record[
+        "datastream_id"].strip():
+        return False, "invalid_datastream_id"
+
+    if "metric" not in record or not isinstance(record["metric"], str) or not record["metric"].strip():
+        return False, "invalid_metric"
+
+    if "seq" not in record or not isinstance(record["seq"], int):
+        return False, "invalid_seq"
+
+    if "event_time" not in record or not isinstance(record["event_time"], str) or not record[
+        "event_time"].strip() or not is_iso_datetime(record["event_time"]):
+        return False, "invalid_event_time"
+
+    if "ingestion_time" not in record or not isinstance(record["ingestion_time"], str) or not record[
+        "ingestion_time"].strip() or not is_iso_datetime(record["ingestion_time"]):
+        return False, "invalid_ingestion_time"
+
+    if "value" not in record or record["value"] is None:
+        return False, "invalid_value"
+
+    return True, "ok"
+
+def safe_decode_validate(avro_bytes: bytes, schema) -> tuple[str, dict]:
+    try:
+        record = schemaless_reader(io.BytesIO(avro_bytes), schema)
+    except Exception:
+        return ("dlq", {
+            "error": "decode_failed",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "payload": base64.b64encode(avro_bytes).decode("ascii"),
+        })
+
+    ok, reason = validate_record(record)
+    if ok:
+        return ("ok", record)
+
+    return ("dlq", {
+        "error": reason,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "payload": base64.b64encode(avro_bytes).decode("ascii"),
+    })
 
 
-with open("observation.avsc", "rb") as f:
+with open(SCHEMA_PATH, "rb") as f:
     raw_schema = json.load(f)
     schema = parse_schema(raw_schema)
 
-def decode_avro(raw_bytes):
-    byt = io.BytesIO(raw_bytes)
-    return schemaless_reader(byt, schema)
+decoded = ds.map(lambda b: safe_decode_validate(b, schema))
 
-def collect_all(key, window, inputs):
-    return [{"metric": key, "list": list(inputs)}]
-parsed_ds = ds.map(decode_avro)
+ok_stream = decoded.filter(lambda t: t[0] == "ok").map(lambda t: t[1])
+dlq_stream = decoded.filter(lambda t: t[0] == "dlq").map(lambda t: t[1])
+dlq_stream.map(lambda d: f"DLQ: {d['error']}").print()
+
+dlq_sink = (
+    KafkaSink.builder()
+    .set_bootstrap_servers(KAFKA_BOOTSTRAP)
+    .set_record_serializer(
+        KafkaRecordSerializationSchema.builder()
+        .set_topic(DLQ_TOPIC)
+        .set_value_serialization_schema(ByteArraySchema())
+        .build()
+    )
+    .set_delivery_guarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+    .build()
+)
+
+dlq_stream_serialized = dlq_stream.map(lambda d: json.dumps(d).encode("utf-8"))
+dlq_stream_serialized.sink_to(dlq_sink)
 
 watermark_strategy = WatermarkStrategy.for_bounded_out_of_orderness(Duration.of_seconds(1)).with_timestamp_assigner(SensorTimestampAssigner()).with_idleness(Duration.of_seconds(10))
-parsed_ds = parsed_ds.assign_timestamps_and_watermarks(watermark_strategy)
+parsed_ds = ok_stream.assign_timestamps_and_watermarks(watermark_strategy)
 
 metric_ds_with_windowing = parsed_ds \
     .key_by(lambda x: x['datastream_id']) \
     .window(TumblingEventTimeWindows.of(Time.seconds(10))) \
     .apply(CollectAll())
+
 metric_ds_with_windowing.print()
-env.execute("IoT Process")
+
+metric_ds_serialized = metric_ds_with_windowing.map(
+    lambda x: json.dumps(x).encode("utf-8")
+)
+processed_sink = (
+    KafkaSink.builder()
+    .set_bootstrap_servers(KAFKA_BOOTSTRAP)
+    .set_record_serializer(
+        KafkaRecordSerializationSchema.builder()
+        .set_topic(PROCESSED_TOPIC)
+        .set_value_serialization_schema(ByteArraySchema())
+        .build()
+    )
+
+    .set_delivery_guarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+    .build()
+)
+
+metric_ds_serialized.sink_to(processed_sink)
+flink_env.execute("IoT Process")
 

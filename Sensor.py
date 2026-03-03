@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Literal, TypeAlias, Any
 
 StateText: TypeAlias = Literal["ON", "OFF"]
-ValueType: TypeAlias = float | int | StateText
+ValueType: TypeAlias = float | int | StateText | bool
 from uuid import UUID, uuid5, NAMESPACE_URL
 
 

@@ -7,7 +7,7 @@ conf = {
     'broker.address.family': 'v4'
 }
 
-# Створення продюсера
+
 producer = Producer(conf)
 
 def delivery_report(err, msg):
@@ -17,7 +17,7 @@ def delivery_report(err, msg):
     else:
         print(f"✅ Успіх! Повідомлення доставлено в топік: {msg.topic()}")
 
-print("📡 Пробую підключитися до Kafka...")
+print("Пробую підключитися до Kafka...")
 
 producer.produce('test_topic', key="test", value="Hello Kafka", callback=delivery_report)
 

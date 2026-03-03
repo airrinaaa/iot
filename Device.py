@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 
 from uuid import UUID, uuid4
@@ -24,17 +25,33 @@ class DeviceType(Enum):
 class Device:
     thing_id: UUID
     device_type: DeviceType
+    time_skew: int = 0
+    jitter_prob: float = 0.15
+    jitter_max: int = 900
+    shuffle_prob: float = 0.1
     sensors: list[Sensor] = field(default_factory=list)
+
+
     def read_all(self) -> list[Observation]:
+        publishing_time = datetime.now(timezone.utc)
         observations: list[Observation] = []
         for sensor in self.sensors:
-            observations.append(sensor.generate_observation())
+            observation = sensor.generate_observation()
+            observation.ingestion_time = publishing_time
+            if self.time_skew != 0:
+                observation.event_time += timedelta(milliseconds=self.time_skew)
+            if random.random() < self.jitter_prob:
+                observation.event_time -= timedelta(milliseconds=random.randint(50, self.jitter_max))
+            observations.append(observation)
+        if random.random() < self.shuffle_prob:
+            random.shuffle(observations)
         return observations
 
     @staticmethod
     def create_by_type(deviceType: DeviceType) -> Device:
         new_id = uuid4()
-        new_device = Device(new_id, deviceType)
+        time_skew = random.randint(-300, 0)
+        new_device = Device(new_id, deviceType, time_skew=time_skew)
         if deviceType == DeviceType.CLIMATE:
             initial_temp = random.uniform(15, 25)
             initial_humidity = random.uniform(30, 60)
