@@ -50,15 +50,15 @@ class Device:
     @staticmethod
     def create_by_type(deviceType: DeviceType) -> Device:
         new_id = uuid4()
-        time_skew = random.randint(-300, 0)
+        time_skew = random.randint(-300, 300)
         new_device = Device(new_id, deviceType, time_skew=time_skew)
         if deviceType == DeviceType.CLIMATE:
             initial_temp = random.uniform(15, 25)
             initial_humidity = random.uniform(30, 60)
             initial_co2 = random.uniform(400, 800)
-            temperature_sensor = AnalogSensor(new_id, "temperature", -10, 40, initial_temp, 0.1, 0.05)
-            humidity_sensor = AnalogSensor(new_id, "humidity", 0, 100, initial_humidity, 0.5, 0.2)
-            co2_sensor = AnalogSensor(new_id, "co2", 300, 5000, initial_co2, 5, 1)
+            temperature_sensor = AnalogSensor(new_id, "temperature", -10, 40, initial_temp, 0.01, 0.005)
+            humidity_sensor = AnalogSensor(new_id, "humidity", 0, 100, initial_humidity, 0.05, 0.02)
+            co2_sensor = AnalogSensor(new_id, "co2", 300, 2000, initial_co2, 0.5, 0.1)
             new_device.sensors.append(temperature_sensor)
             new_device.sensors.append(humidity_sensor)
             new_device.sensors.append(co2_sensor)

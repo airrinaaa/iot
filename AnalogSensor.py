@@ -21,5 +21,6 @@ class AnalogSensor(Sensor):
         elif self.value < self.min_value:
             self.value = self.min_value
         value_with_noise = self.value + random.gauss(0,self.noise)
+        value_with_noise = max(self.min_value, min(self.max_value, value_with_noise))
         return round(value_with_noise, 3)
        
