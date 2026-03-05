@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from kafka import KafkaConsumer
 import influxdb_client
 from influxdb_client import Point
-import pickle
 
 
 from river import anomaly
@@ -11,7 +10,7 @@ from config import env
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
 PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data")
-KAFKA_GROUP_ID = env("KAFKA_GROUP_ID_ANOMALY", "anomaly_detector_group")
+KAFKA_GROUP_ID = env("KAFKA_GROUP_ID_ANOMALY", "anomaly_detector_group_v2")
 
 INFLUX_URL = env("INFLUX_URL", "http://localhost:8086")
 INFLUX_BUCKET = env("INFLUX_BUCKET", "iot_bucket")
@@ -41,9 +40,10 @@ print("Модуль виявлення аномалій запущено.")
 THRESHOLD = 0.85
 for message in consumer:
     try:
-        data = json.loads(pickle.loads(message.value))
+        raw = message.value.decode("utf-8")
+        data = json.loads(raw)
     except Exception as e:
-        print(e)
+        print(f"Пропущено старе повідомлення: {e}")
         continue
     datastream_id = str(data["datastream_id"])
     metric = str(data["metric"])

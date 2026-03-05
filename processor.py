@@ -5,7 +5,7 @@ import os
 import io
 
 from fastavro import parse_schema, schemaless_reader
-from pyflink.common import Duration
+from pyflink.common import Duration, Types
 from pyflink.common.time import Time
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.connectors.kafka import (
@@ -17,7 +17,7 @@ from pyflink.datastream.connectors.kafka import (
 from pyflink.datastream.connectors import DeliveryGuarantee
 from pyflink.common.watermark_strategy import WatermarkStrategy
 from pyflink.datastream.window import TumblingEventTimeWindows
-from pyflink.common.serialization import ByteArraySchema
+from pyflink.common.serialization import SimpleStringSchema, ByteArraySchema
 
 from CollectAll import CollectAll
 from SensorTimestampAssigner import SensorTimestampAssigner
@@ -27,7 +27,7 @@ from pyflink.common import Configuration
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
 SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data")
 PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data")
-KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "iot_processor_v1")
+KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "iot_processor_v2")
 
 SCHEMA_PATH = env("SCHEMA_PATH", "observation.avsc")
 DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter")
@@ -129,10 +129,12 @@ dlq_sink = (
     .set_record_serializer(
         KafkaRecordSerializationSchema.builder()
         .set_topic(DLQ_TOPIC)
-        .set_value_serialization_schema(ByteArraySchema())
+        .set_value_serialization_schema(SimpleStringSchema())
         .build()
     )
-    .set_delivery_guarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+    .set_delivery_guarantee(DeliveryGuarantee.EXACTLY_ONCE)
+    .set_transactional_id_prefix("flink-iot-dlq-")
+    .set_property("transaction.timeout.ms", "900000")
     .build()
 )
 
@@ -150,7 +152,8 @@ metric_ds_with_windowing = parsed_ds \
 metric_ds_with_windowing.print()
 
 metric_ds_serialized = metric_ds_with_windowing.map(
-    lambda x: json.dumps(x).encode("utf-8")
+    lambda x: json.dumps(x),
+    output_type=Types.STRING()
 )
 processed_sink = (
     KafkaSink.builder()
@@ -158,10 +161,12 @@ processed_sink = (
     .set_record_serializer(
         KafkaRecordSerializationSchema.builder()
         .set_topic(PROCESSED_TOPIC)
-        .set_value_serialization_schema(ByteArraySchema())
+        .set_value_serialization_schema(SimpleStringSchema())
         .build()
     )
-    .set_delivery_guarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+    .set_delivery_guarantee(DeliveryGuarantee.EXACTLY_ONCE)
+    .set_transactional_id_prefix("flink-iot-processed-")
+    .set_property("transaction.timeout.ms", "900000")
     .build()
 )
 
