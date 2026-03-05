@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from kafka import KafkaConsumer
 import influxdb_client
 from influxdb_client import Point
-import pickle
 
 
 from river import anomaly
@@ -11,7 +10,7 @@ from config import env
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
 PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data")
-KAFKA_GROUP_ID = env("KAFKA_GROUP_ID_ANOMALY", "anomaly_detector_group")
+KAFKA_GROUP_ID = env("KAFKA_GROUP_ID_ANOMALY", "anomaly_detector_group_v2")
 
 INFLUX_URL = env("INFLUX_URL", "http://localhost:8086")
 INFLUX_BUCKET = env("INFLUX_BUCKET", "iot_bucket")
@@ -41,9 +40,9 @@ print("Модуль виявлення аномалій запущено.")
 THRESHOLD = 0.85
 for message in consumer:
     try:
-        data = json.loads(pickle.loads(message.value))
+        raw = message.value.decode("utf-8")
+        data = json.loads(raw)
     except Exception as e:
-        print(e)
         continue
     datastream_id = str(data["datastream_id"])
     metric = str(data["metric"])
@@ -89,10 +88,17 @@ for message in consumer:
             elif max_value > 500:
                 is_sensor_fault = True
                 anomaly_value = max_value
+        elif metric == "fridge":
+            if min_value < -50:
+                is_sensor_fault = True
+                anomaly_value = min_value
+            elif max_value > 100:
+                is_sensor_fault = True
+                anomaly_value = max_value
 
         if is_sensor_fault:
             print(
-                f"ЗБІЙ СЕНСОРА (Hardware Fault)! Датчик {datastream_id}({metric}) видав неможливе значення: {average:.2f}")
+                f"ЗБІЙ СЕНСОРА (Hardware Fault)! Датчик {datastream_id}({metric}) видав неможливе значення: {anomaly_value:.2f} (середнє вікна: {average:.2f})")
             p = (Point(INFLUX_MEASUREMENT)
                  .tag("sensor_type", "analog")
                  .tag("metric", metric)
@@ -114,7 +120,7 @@ for message in consumer:
         anomaly_score = ml_models[datastream_id]['model'].score_one(features)
         ml_models[datastream_id]['model'].learn_one(features)
         ml_models[datastream_id]['count'] += 1
-        if anomaly_score > THRESHOLD and ml_models[datastream_id]['count'] > 10:
+        if anomaly_score > THRESHOLD and ml_models[datastream_id]['count'] > 30:
             print(f"ВИЯВЛЕНО АНОМАЛІЮ! Сенсор {datastream_id}({metric}). Значення {average:.2f}, Score: {anomaly_score:.3f}")
             p = (Point(INFLUX_MEASUREMENT)
                 .tag("sensor_type", "analog")
@@ -141,7 +147,7 @@ for message in consumer:
         anomaly_score = ml_models[datastream_id]['model'].score_one(features)
         ml_models[datastream_id]['model'].learn_one(features)
         ml_models[datastream_id]['count'] += 1
-        if anomaly_score > THRESHOLD and ml_models[datastream_id]['count'] > 10:
+        if anomaly_score > THRESHOLD and ml_models[datastream_id]['count'] > 30:
             print(f"ВИЯВЛЕНО АНОМАЛІЮ! Сенсор {datastream_id}({metric}). Значення {delta:.2f}, Score: {anomaly_score:.3f}")
             p = (Point(INFLUX_MEASUREMENT)
                 .tag("sensor_type", "counter")
@@ -166,7 +172,7 @@ for message in consumer:
         anomaly_score = ml_models[datastream_id]['model'].score_one(features)
         ml_models[datastream_id]['model'].learn_one(features)
         ml_models[datastream_id]['count'] += 1
-        if anomaly_score > THRESHOLD and ml_models[datastream_id]['count'] > 10:
+        if anomaly_score > THRESHOLD and ml_models[datastream_id]['count'] > 30:
             print(f"ВИЯВЛЕНО АНОМАЛІЮ! Сенсор {datastream_id}({metric}). Значення {distinct_counts:.2f}, Score: {anomaly_score:.3f}")
             p = (Point(INFLUX_MEASUREMENT)
                 .tag("sensor_type", "state")
@@ -194,12 +200,13 @@ for message in consumer:
             anomaly_score = 0.0
             if metric == "smoke":
                 anomaly_score = 1.0
+                ml_models[datastream_id]['count'] += 1
             elif metric == "move":
                 features = {"activity_level": true_ratio, "time": time_of_event, "day of week": day_of_week}
                 anomaly_score = ml_models[datastream_id]['model'].score_one(features)
                 ml_models[datastream_id]['model'].learn_one(features)
                 ml_models[datastream_id]['count'] += 1
-            if anomaly_score > THRESHOLD and ml_models[datastream_id]['count'] > 10:
+            if metric == "smoke" or (anomaly_score > THRESHOLD and ml_models[datastream_id]['count'] > 30):
                 print(f"ВИЯВЛЕНО АНОМАЛІЮ! Сенсор {datastream_id}({metric}). Значення {true_count:.2f}, Score: {anomaly_score:.3f}")
                 p = (Point(INFLUX_MEASUREMENT)
                     .tag("sensor_type", "alarm")

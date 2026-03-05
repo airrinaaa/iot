@@ -34,7 +34,7 @@ def run_simulation():
         dev_type = types_of_devices[i % len(types_of_devices)]
         devices.append(Device.create_by_type(dev_type))
 
-    ANOMALY_CYCLE_SEC = 60
+    ANOMALY_CYCLE_SEC = 600
     device_phase_offset = {
         device.thing_id: random.uniform(0, ANOMALY_CYCLE_SEC)
         for device in devices
@@ -60,7 +60,7 @@ def run_simulation():
                     elif metric in ["humidity"]:
                         data['value'] = 500.0
                 else:
-                    if 45 < cycle_time < 55:
+                    if 580 < cycle_time < 600 and random.random() < 0.08:
                         if metric == "smoke":
                             data['value'] = True
                         elif metric == "temperature":
@@ -79,14 +79,38 @@ def run_simulation():
                         elif metric == "move":
                             data['value'] = True
 
-                bytes_io = io.BytesIO()
                 data['thing_id'] = str(data['thing_id'])
                 data['datastream_id'] = str(data['datastream_id'])
                 data['event_time'] = data['event_time'].isoformat()
                 data['ingestion_time'] = data['ingestion_time'].isoformat()
 
-                schemaless_writer(bytes_io, schema, data)
-                avro_bytes = bytes_io.getvalue()
+                is_dlq = False
+                avro_bytes = b""
+
+                if random.random() < 0.00001:
+                    is_dlq = True
+                    error_type = random.choice(["bad_metric", "bad_time", "empty_id", "bad_bytes"])
+
+                    if error_type == "bad_metric":
+                        data['metric'] = "   "
+                    elif error_type == "bad_time":
+                        data['event_time'] = "2026-99-99 broken-time"
+                    elif error_type == "empty_id":
+                        data['datastream_id'] = "   "
+
+                    if error_type == "bad_bytes":
+                        avro_bytes = b"totally_invalid_avro_garbage_123456789"
+                    else:
+                        try:
+                            bytes_io = io.BytesIO()
+                            schemaless_writer(bytes_io, schema, data)
+                            avro_bytes = bytes_io.getvalue()
+                        except Exception:
+                            avro_bytes = b""
+                if not is_dlq:
+                    bytes_io = io.BytesIO()
+                    schemaless_writer(bytes_io, schema, data)
+                    avro_bytes = bytes_io.getvalue()
 
                 topic = f"{MQTT_TOPIC_PREFIX}/{device.device_type.value}"
                 client.publish(topic, payload=avro_bytes)

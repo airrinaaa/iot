@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  #Брокер повідомлень
+  # MQTT Брокер
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: mosquitto
@@ -13,7 +13,7 @@ services:
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
 
-  #База даних
+  # InfluxDB
   influxdb:
     image: influxdb:2.7
     container_name: influxdb
@@ -21,32 +21,15 @@ services:
       - "8086:8086"
     volumes:
       - influxdb_data:/var/lib/influxdb2
-
-  #Apache Flink JobManager
-  jobmanager:
-    image: flink:1.18.1-java11
-    container_name: jobmanager
-    ports:
-      - "8081:8081"
-    command: jobmanager
     environment:
-      - |
-        FLINK_PROPERTIES=
-        jobmanager.rpc.address: jobmanager
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=ira
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin12345
+      - DOCKER_INFLUXDB_INIT_ORG=ukma
+      - DOCKER_INFLUXDB_INIT_BUCKET=iot_bucket
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=super-secret-token
 
-  # Apache Flink TaskManager
-  taskmanager:
-    image: flink:1.18.1-java11
-    container_name: taskmanager
-    depends_on:
-      - jobmanager
-    command: taskmanager
-    environment:
-      - |
-        FLINK_PROPERTIES=
-        jobmanager.rpc.address: jobmanager
-        taskmanager.numberOfTaskSlots: 2
-#KAFKA
+  # Kafka Infrastructure
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.2
     container_name: zookeeper
@@ -67,16 +50,42 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-
-      # internal topics
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-
-      # EXACTLY_ONCE / transactions for single-broker local dev
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_MIN_INSYNC_REPLICAS: 1
-
-      # match processor sink transaction timeout
       KAFKA_TRANSACTION_MAX_TIMEOUT_MS: 900000
+
+  # Flink Infrastructure
+  jobmanager:
+    image: flink:1.18.1-java11
+    container_name: jobmanager
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    volumes:
+      - ./jars:/opt/flink/usrlib
+      - flink_checkpoints:/flink-checkpoints
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+
+  taskmanager:
+    image: flink:1.18.1-java11
+    container_name: taskmanager
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    volumes:
+      - ./jars:/opt/flink/usrlib
+      - flink_checkpoints:/flink-checkpoints
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 2
+
 volumes:
   influxdb_data:
+  flink_checkpoints:

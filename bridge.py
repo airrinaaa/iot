@@ -10,7 +10,7 @@ MQTT_PORT = int(env("MQTT_PORT", "1883"))
 MQTT_KEEPALIVE = int(env("MQTT_KEEPALIVE", "60"))
 MQTT_SUBSCRIBE_TOPIC = env("MQTT_SUBSCRIBE_TOPIC", "sensors/#")
 
-producer = KafkaProducer(bootstrap_servers=[KAFKA_BOOTSTRAP])
+producer = KafkaProducer(bootstrap_servers=[KAFKA_BOOTSTRAP],api_version=(0, 10, 2),retries=5)
 
 def on_connect(client, userdata, flags, reason_code, properties):
     print("Bridge підключився до MQTT!")
@@ -31,4 +31,3 @@ mqtt_client.connect(MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE)
 
 print("Bridge працює...")
 mqtt_client.loop_forever()
-
