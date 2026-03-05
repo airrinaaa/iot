@@ -22,6 +22,7 @@ from pyflink.common.serialization import ByteArraySchema
 from CollectAll import CollectAll
 from SensorTimestampAssigner import SensorTimestampAssigner
 from config import env
+from pyflink.common import Configuration
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
 SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data")
@@ -30,8 +31,15 @@ KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "iot_processor_v1")
 
 SCHEMA_PATH = env("SCHEMA_PATH", "observation.avsc")
 DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter")
-flink_env = StreamExecutionEnvironment.get_execution_environment()
+
+config = Configuration()
+config.set_string("execution.buffer-timeout", "0")
+config.set_string("state.checkpoints.dir", f"file://{os.getcwd()}/flink-checkpoints")
+
+flink_env = StreamExecutionEnvironment.get_execution_environment(config)
 flink_env.set_parallelism(1)
+flink_env.enable_checkpointing(5000)
+
 current_dir = os.getcwd()
 jar_path = f"file://{os.getcwd()}/jars/flink-sql-connector-kafka-4.0.1-2.0.jar"
 
@@ -153,11 +161,9 @@ processed_sink = (
         .set_value_serialization_schema(ByteArraySchema())
         .build()
     )
-
     .set_delivery_guarantee(DeliveryGuarantee.AT_LEAST_ONCE)
     .build()
 )
 
 metric_ds_serialized.sink_to(processed_sink)
 flink_env.execute("IoT Process")
-
