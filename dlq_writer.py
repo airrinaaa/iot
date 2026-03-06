@@ -21,8 +21,6 @@ consumer = KafkaConsumer(
     group_id="dlq_writer_v3",
     bootstrap_servers=[KAFKA_BOOTSTRAP],
     api_version=(0, 10, 2),
-    max_partition_fetch_bytes=200 * 1024 * 1024,
-    fetch_max_bytes=200 * 1024 * 1024,
 
 )
 

@@ -22,6 +22,7 @@ from CollectAll import CollectAll
 from SensorTimestampAssigner import SensorTimestampAssigner
 from config import env
 from pyflink.common import Configuration
+from pyflink.datastream.externalized_checkpoint_retention import ExternalizedCheckpointRetention
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
 SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data")
@@ -38,6 +39,13 @@ config.set_string("state.checkpoints.dir", f"file://{os.getcwd()}/flink-checkpoi
 flink_env = StreamExecutionEnvironment.get_execution_environment(config)
 flink_env.set_parallelism(1)
 flink_env.enable_checkpointing(5000)
+checkpoint_config = flink_env.get_checkpoint_config()
+checkpoint_config.set_checkpoint_timeout(60000)
+checkpoint_config.set_min_pause_between_checkpoints(3000)
+checkpoint_config.set_max_concurrent_checkpoints(1)
+checkpoint_config.set_externalized_checkpoint_retention(
+    ExternalizedCheckpointRetention.RETAIN_ON_CANCELLATION
+)
 
 current_dir = os.getcwd()
 jar_path = f"file://{os.getcwd()}/jars/flink-sql-connector-kafka-4.0.1-2.0.jar"

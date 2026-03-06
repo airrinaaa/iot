@@ -4,15 +4,39 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9984b7c6-8522-4df3-9107-f2a69f0610c3" name="Changes" comment="influxdb">
+    <list default="true" id="9984b7c6-8522-4df3-9107-f2a69f0610c3" name="Changes" comment="dlq added">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Device.py" beforeDir="false" afterPath="$PROJECT_DIR$/Device.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/anomaly_detector.py" beforeDir="false" afterPath="$PROJECT_DIR$/anomaly_detector.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/bridge.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/03eefb696aa9715f97344497d1b82a46/chk-42/3549ba68-9128-4fd5-855e-d87fde6bce3a" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/03eefb696aa9715f97344497d1b82a46/chk-42/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/343b2c7b80f4e94888d979880053cb24/chk-7/2a89298a-1719-44ac-86d4-22b6ed12cc48" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/343b2c7b80f4e94888d979880053cb24/chk-7/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/384d61116baabcca92fd30471e51e24d/chk-1/94cef69c-8efe-40ee-89db-a8aa9cd82b42" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/384d61116baabcca92fd30471e51e24d/chk-1/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/3dad38758a546846d63efdd524712abf/chk-18/03b1d6a5-4a6c-41ec-a3d9-a2d6432a5dd7" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/3dad38758a546846d63efdd524712abf/chk-18/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/4a9a8693b5bd1d8ca5c255bce5f33cc0/chk-132/1b24078f-a194-40ba-b805-c1ece1ab0328" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/4a9a8693b5bd1d8ca5c255bce5f33cc0/chk-132/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/4bf33adf1226105759c96b04efd5bf83/chk-1/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/60b3862cde419cf8618c4911803b5b85/chk-3/73857cbe-8402-4098-aadb-a62f47102e59" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/60b3862cde419cf8618c4911803b5b85/chk-3/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/67decc7c68c0e0a99f897dd8a3992b87/chk-1/96d978b8-f80d-4ee6-a8cb-8c768046cabf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/67decc7c68c0e0a99f897dd8a3992b87/chk-1/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/6cae6c132953ba29078f7e7686c89df0/chk-31/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/6cae6c132953ba29078f7e7686c89df0/chk-31/dbf33863-d918-411a-b615-49a046732659" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/6fa104ce17850a886c0dc421d5ded133/chk-12/781d3174-2abc-460c-87fc-b2b82b7f6704" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/6fa104ce17850a886c0dc421d5ded133/chk-12/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/7b218231a4eef4a2a74b97dd7d5b119f/chk-6/1c9f2460-36ce-48b9-8c04-fc97585c934c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/7b218231a4eef4a2a74b97dd7d5b119f/chk-6/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/a06e54d9fd33f01a5ecd5f74c867aba8/chk-1/9c046433-f9c7-49db-be91-718961f37b61" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/a06e54d9fd33f01a5ecd5f74c867aba8/chk-1/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/a90036bbacb24be7b19ab7efbe4d6528/chk-4/22451bfe-b8a9-4b96-a169-cba75eeb81e3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/a90036bbacb24be7b19ab7efbe4d6528/chk-4/_metadata" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/ad29525780bc4b9bafd79b8b267b303f/chk-165/2fad4e57-ecfb-4207-82e3-4c0ea51a336b" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink-checkpoints/ad29525780bc4b9bafd79b8b267b303f/chk-165/_metadata" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/processor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/processor_writer.py" beforeDir="false" afterPath="$PROJECT_DIR$/processor_writer.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -268,7 +292,7 @@
       <workItem from="1772145172081" duration="4132000" />
       <workItem from="1772227211574" duration="34355000" />
       <workItem from="1772746718936" duration="1333000" />
-      <workItem from="1772748271575" duration="11298000" />
+      <workItem from="1772748271575" duration="15330000" />
     </task>
     <task id="LOCAL-00001" summary="sensors and sending messages">
       <option name="closed" value="true" />
@@ -310,7 +334,23 @@
       <option name="project" value="LOCAL" />
       <updated>1772730879226</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="dlq added">
+      <option name="closed" value="true" />
+      <created>1772807075606</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1772807075606</updated>
+    </task>
+    <task id="LOCAL-00007" summary="dlq added">
+      <option name="closed" value="true" />
+      <created>1772807092488</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1772807092488</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -322,18 +362,19 @@
     <MESSAGE value="processing all sensors by their types" />
     <MESSAGE value="anomaly detection" />
     <MESSAGE value="checkpoints added" />
-    <option name="LAST_COMMIT_MESSAGE" value="checkpoints added" />
+    <MESSAGE value="dlq added" />
+    <option name="LAST_COMMIT_MESSAGE" value="dlq added" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/Iot$receiver.coverage" NAME="receiver Coverage Results" MODIFIED="1772401766383" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$main.coverage" NAME="main Coverage Results" MODIFIED="1772806099106" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$processor.coverage" NAME="processor Coverage Results" MODIFIED="1772806095000" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$main.coverage" NAME="main Coverage Results" MODIFIED="1772809464638" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$processor.coverage" NAME="processor Coverage Results" MODIFIED="1772809438168" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$iot_simulator.coverage" NAME="iot_simulator Coverage Results" MODIFIED="1771168943822" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$dlq_writer.coverage" NAME="dlq_writer Coverage Results" MODIFIED="1772806088741" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$dlq_writer.coverage" NAME="dlq_writer Coverage Results" MODIFIED="1772809457482" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$Device.coverage" NAME="Device Coverage Results" MODIFIED="1771270005023" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$anomaly_detector.coverage" NAME="anomaly_detector Coverage Results" MODIFIED="1772806085956" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$processor_writer.coverage" NAME="processor_writer Coverage Results" MODIFIED="1772806092197" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$anomaly_detector.coverage" NAME="anomaly_detector Coverage Results" MODIFIED="1772809432489" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$CollectAll.coverage" NAME="CollectAll Coverage Results" MODIFIED="1772402061233" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$bridge.coverage" NAME="bridge Coverage Results" MODIFIED="1772806108059" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$bridge.coverage" NAME="bridge Coverage Results" MODIFIED="1772809435010" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

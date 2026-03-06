@@ -60,22 +60,18 @@ def run_simulation():
                     elif metric in ["humidity"]:
                         data['value'] = 500.0
                 else:
-                    if 580 < cycle_time < 600 and random.random() < 0.08:
-                        if metric == "smoke":
-                            data['value'] = True
-                        elif metric == "temperature":
-                            data['value'] = random.uniform(60.0, 85.0)
+                    if 580 < cycle_time < 600 and random.random() < 0.05:
+                        if metric == "temperature":
+                            data['value'] = random.uniform(45.0, 60.0)
                         elif metric == "co2":
-                            data['value'] = random.uniform(3000.0, 4500.0)
+                            data['value'] = random.uniform(1800.0, 2800.0)
                         elif metric == "fridge":
-                            data['value'] = random.uniform(15.0, 22.0)
+                            data['value'] = random.uniform(10.0, 16.0)
                         elif metric == "voltage":
-                            data['value'] = random.uniform(280.0, 310.0)
+                            data['value'] = random.uniform(255.0, 270.0)
                         elif metric == "water":
                             if isinstance(data['value'], (int, float)):
-                                data['value'] += random.uniform(100.0, 300.0)
-                        elif metric == "door":
-                            data['value'] = "ON" if int(personal_time * 5) % 2 == 0 else "OFF"
+                                data['value'] += random.uniform(2.0, 8.0)
                         elif metric == "move":
                             data['value'] = True
 
