@@ -130,7 +130,9 @@ dlq_sink = (
         .set_value_serialization_schema(SimpleStringSchema())
         .build()
     )
-    .set_delivery_guarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+    .set_delivery_guarantee(DeliveryGuarantee.EXACTLY_ONCE)
+    .set_transactional_id_prefix("flink-iot-dlq-")
+    .set_property("transaction.timeout.ms", "900000")
     .build()
 )
 
