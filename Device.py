@@ -28,7 +28,10 @@ class Device:
     time_skew: int = 0
     jitter_prob: float = 0.15
     jitter_max: int = 900
-    shuffle_prob: float = 0.1
+    shuffle_prob: float = 0.03
+    late_data_prob: float = 0.0001
+    late_data_min_sec = 5
+    late_data_max_sec = 15
     sensors: list[Sensor] = field(default_factory=list)
 
 
@@ -42,6 +45,10 @@ class Device:
                 observation.event_time += timedelta(milliseconds=self.time_skew)
             if random.random() < self.jitter_prob:
                 observation.event_time -= timedelta(milliseconds=random.randint(50, self.jitter_max))
+            if random.random() < self.late_data_prob:
+                observation.event_time -= timedelta(
+                    seconds=random.randint(self.late_data_min_sec, self.late_data_max_sec)
+                )
             observations.append(observation)
         if random.random() < self.shuffle_prob:
             random.shuffle(observations)
@@ -83,7 +90,7 @@ class Device:
             initial_fridge = random.uniform(3, 6)
             fridge_sensor = AnalogSensor(new_id, "fridge", 1, 8, initial_fridge, 0.03, 0.12)
             oven_sensor = StateSensor(new_id, "oven", 0, 0.0007)
-            smoke_sensor = AlarmSensor(new_id, "smoke", 0.0000001, 60)
+            smoke_sensor = AlarmSensor(new_id, "smoke", 0.000000000001, 60)
             new_device.sensors.append(fridge_sensor)
             new_device.sensors.append(oven_sensor)
             new_device.sensors.append(smoke_sensor)

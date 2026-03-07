@@ -54,6 +54,10 @@ for message in consumer:
         window_end = int(data["window_end"])
         count = int(data["count"])
         latency = int(data["latency"])
+        result_time = int(data["result_time"])
+        max_event_time = int(data["max_event_time"])
+        window_duration_sec = (window_end - window_start) / 1000.0
+        throughput = count / window_duration_sec if window_duration_sec > 0 else 0.0
     except (KeyError, TypeError, ValueError) as e:
         print(f"Відсутнє поле {e}, пропускаємо запис.")
         continue
@@ -76,7 +80,11 @@ for message in consumer:
                 .field("min_value", min_value)
                 .field("max_value", max_value)
                 .field("average", average)
-                .field("latency", latency))
+                .field("result_time", result_time)
+                .field("max_event_time", max_event_time)
+                .field("window_duration_sec", window_duration_sec)
+                .field("latency", latency)
+                .field("throughput", throughput))
         except (KeyError, TypeError, ValueError):
             pass
 
@@ -96,7 +104,12 @@ for message in consumer:
                 .field("first_value", first_value)
                 .field("last_value", last_value)
                 .field("delta", delta)
-                .field("latency", latency))
+                 .field("result_time", result_time)
+                 .field("max_event_time", max_event_time)
+                 .field("window_duration_sec", window_duration_sec)
+                 .field("latency", latency)
+                 .field("throughput", throughput))
+
         except (KeyError, TypeError, ValueError):
             pass
 
@@ -116,7 +129,12 @@ for message in consumer:
                 .field("on_count", on_count)
                 .field("off_count", off_count)
                 .field("distinct_counts", distinct_counts)
-                .field("latency", latency))
+                .field("result_time", result_time)
+                .field("max_event_time", max_event_time)
+                .field("window_duration_sec", window_duration_sec)
+                .field("latency", latency)
+                .field("throughput", throughput))
+
         except (KeyError, TypeError, ValueError):
             pass
 
@@ -132,10 +150,15 @@ for message in consumer:
                 .time(ms_to_datetime(window_end))
                 .field("window_start", window_start)
                 .field("window_end", window_end)
+                .field("count", count)
                 .field("true_ratio", true_ratio)
                 .field("false_count", false_count)
                 .field("true_count", true_count)
-                .field("latency", latency))
+                .field("result_time", result_time)
+                .field("max_event_time", max_event_time)
+                .field("window_duration_sec", window_duration_sec)
+                .field("latency", latency)
+                .field("throughput", throughput))
         except (KeyError, TypeError, ValueError):
             pass
 

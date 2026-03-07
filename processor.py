@@ -6,7 +6,7 @@ import io
 from fastavro import parse_schema, schemaless_reader
 from pyflink.common import Duration, Types
 from pyflink.common.time import Time
-from pyflink.datastream import StreamExecutionEnvironment
+from pyflink.datastream import StreamExecutionEnvironment, OutputTag, ProcessFunction
 from pyflink.datastream.connectors.kafka import (
     KafkaSource,
     KafkaOffsetsInitializer,
@@ -28,6 +28,12 @@ KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
 SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data")
 PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data")
 KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "iot_processor_v2")
+LATE_DATA_TOPIC = env("LATE_DATA_TOPIC", "late_data_v1")
+IDLENESS_SEC = 10
+
+WINDOW_SIZE_SEC = 10
+MAX_OUT_OF_ORDER_SEC = 1
+ALLOWED_LATENESS_SEC = 3
 
 SCHEMA_PATH = env("SCHEMA_PATH", "observation.avsc")
 DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter")
@@ -144,15 +150,52 @@ dlq_sink = (
     .build()
 )
 
-dlq_stream_serialized = dlq_stream.map(lambda d: json.dumps(d),output_type=Types.STRING())
+dlq_stream_serialized = dlq_stream.map(lambda d: json.dumps(d), output_type=Types.STRING())
 dlq_stream_serialized.sink_to(dlq_sink)
 
-watermark_strategy = WatermarkStrategy.for_bounded_out_of_orderness(Duration.of_seconds(1)).with_timestamp_assigner(SensorTimestampAssigner()).with_idleness(Duration.of_seconds(10))
+watermark_strategy = WatermarkStrategy.for_bounded_out_of_orderness(Duration.of_seconds(MAX_OUT_OF_ORDER_SEC)).with_timestamp_assigner(
+    SensorTimestampAssigner()).with_idleness(Duration.of_seconds(IDLENESS_SEC))
 parsed_ds = ok_stream.assign_timestamps_and_watermarks(watermark_strategy)
 
-metric_ds_with_windowing = parsed_ds \
+late_tag = OutputTag("late_data", Types.STRING())
+
+
+class LateDataFilter(ProcessFunction):
+    def __init__(self):
+        self.max_ts = 0
+        self.max_out_of_order_ms = MAX_OUT_OF_ORDER_SEC * 1000
+        self.window_size_ms = WINDOW_SIZE_SEC * 1000
+        self.allowed_lateness_ms = ALLOWED_LATENESS_SEC * 1000
+
+    def process_element(self, value, ctx: 'ProcessFunction.Context'):
+        ts = int(datetime.fromisoformat(value["event_time"]).timestamp() * 1000)
+        if ts > self.max_ts:
+            self.max_ts = ts
+
+        my_wm = self.max_ts - self.max_out_of_order_ms
+        window_end = ts - (ts % self.window_size_ms) + self.window_size_ms
+        cleanup_time = window_end + self.allowed_lateness_ms
+
+        if my_wm >= cleanup_time:
+            value["late_by_sec"] = round((my_wm - cleanup_time) / 1000.0, 1)
+            yield late_tag, json.dumps(value)
+            return
+
+        yield value
+
+
+filtered_ds = parsed_ds.process(LateDataFilter(), output_type=Types.PICKLED_BYTE_ARRAY())
+
+late_sink = KafkaSink.builder().set_bootstrap_servers(KAFKA_BOOTSTRAP).set_record_serializer(
+    KafkaRecordSerializationSchema.builder().set_topic(LATE_DATA_TOPIC).set_value_serialization_schema(
+        SimpleStringSchema()).build()).set_delivery_guarantee(
+    DeliveryGuarantee.EXACTLY_ONCE).set_transactional_id_prefix("flink-iot-late-").set_property(
+    "transaction.timeout.ms", "900000").build()
+filtered_ds.get_side_output(late_tag).sink_to(late_sink)
+
+metric_ds_with_windowing = filtered_ds \
     .key_by(lambda x: x['datastream_id']) \
-    .window(TumblingEventTimeWindows.of(Time.seconds(10))) \
+    .window(TumblingEventTimeWindows.of(Time.seconds(WINDOW_SIZE_SEC))) \
     .apply(CollectAll())
 
 metric_ds_with_windowing.print()
