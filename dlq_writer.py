@@ -9,7 +9,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 from config import env
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
-DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter")
+DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter_topic1")
 
 INFLUX_URL = env("INFLUX_URL", "http://localhost:8086")
 INFLUX_BUCKET = env("INFLUX_BUCKET", "iot_bucket")

@@ -1,3 +1,4 @@
+# ВІДПОВІДАЄ ЗА ЗАПИС ЗАПІЗНІЛИХ ДАНИХ ДО БАЗИ ДАНИХ
 import json
 from datetime import datetime, timezone
 
@@ -9,7 +10,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 from config import env
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
-LATE_DATA_TOPIC = env("LATE_DATA_TOPIC", "late_data_v1")
+LATE_DATA_TOPIC = env("LATE_DATA_TOPIC", "late_data_topic1")
 
 INFLUX_URL = env("INFLUX_URL", "http://localhost:8086")
 INFLUX_BUCKET = env("INFLUX_BUCKET", "iot_bucket")

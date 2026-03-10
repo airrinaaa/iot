@@ -3,7 +3,7 @@ from kafka import KafkaProducer
 from config import env
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
-SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data")
+SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data_topic1")
 
 MQTT_HOST = env("MQTT_HOST", "localhost")
 MQTT_PORT = int(env("MQTT_PORT", "1883"))

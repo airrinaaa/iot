@@ -25,18 +25,18 @@ from pyflink.common import Configuration
 from pyflink.datastream.externalized_checkpoint_retention import ExternalizedCheckpointRetention
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
-SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data")
-PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data")
-KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "iot_processor_v2")
-LATE_DATA_TOPIC = env("LATE_DATA_TOPIC", "late_data_v1")
+SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data_topic1")
+PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data_topic1")
+KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "iot_processor1")
+LATE_DATA_TOPIC = env("LATE_DATA_TOPIC", "late_data_topic1")
 IDLENESS_SEC = 10
 
-WINDOW_SIZE_SEC = 10
+WINDOW_SIZE_SEC = 8
 MAX_OUT_OF_ORDER_SEC = 1
 ALLOWED_LATENESS_SEC = 3
 
 SCHEMA_PATH = env("SCHEMA_PATH", "observation.avsc")
-DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter")
+DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter_topic")
 
 config = Configuration()
 config.set_string("execution.buffer-timeout", "0")
@@ -144,9 +144,7 @@ dlq_sink = (
         .set_value_serialization_schema(SimpleStringSchema())
         .build()
     )
-    .set_delivery_guarantee(DeliveryGuarantee.EXACTLY_ONCE)
-    .set_transactional_id_prefix("flink-iot-dlq-")
-    .set_property("transaction.timeout.ms", "900000")
+    .set_delivery_guarantee(DeliveryGuarantee.AT_LEAST_ONCE)
     .build()
 )
 
@@ -189,8 +187,7 @@ filtered_ds = parsed_ds.process(LateDataFilter(), output_type=Types.PICKLED_BYTE
 late_sink = KafkaSink.builder().set_bootstrap_servers(KAFKA_BOOTSTRAP).set_record_serializer(
     KafkaRecordSerializationSchema.builder().set_topic(LATE_DATA_TOPIC).set_value_serialization_schema(
         SimpleStringSchema()).build()).set_delivery_guarantee(
-    DeliveryGuarantee.EXACTLY_ONCE).set_transactional_id_prefix("flink-iot-late-").set_property(
-    "transaction.timeout.ms", "900000").build()
+    DeliveryGuarantee.AT_LEAST_ONCE).build()
 filtered_ds.get_side_output(late_tag).sink_to(late_sink)
 
 metric_ds_with_windowing = filtered_ds \

@@ -7,8 +7,8 @@ from kafka import KafkaConsumer
 from config import env
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
-PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data")
-KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "processed_writer_v3")
+PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data_topic1")
+KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "processed_writer_topic1")
 
 INFLUX_URL = env("INFLUX_URL", "http://localhost:8086")
 INFLUX_BUCKET = env("INFLUX_BUCKET", "iot_bucket")

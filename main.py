@@ -15,8 +15,8 @@ MQTT_HOST = env("MQTT_HOST", "localhost")
 MQTT_PORT = int(env("MQTT_PORT", "1883"))
 MQTT_KEEPALIVE = int(env("MQTT_KEEPALIVE", "60"))
 MQTT_TOPIC_PREFIX = env("MQTT_TOPIC_PREFIX", "sensors")
-NUMBER_OF_DEVICES = int(env("NUMBER_OF_DEVICES", "1000"))
-SLEEP_TIME = float(env("SLEEP_TIME", "2"))
+NUMBER_OF_DEVICES = int(env("NUMBER_OF_DEVICES", "10"))
+SLEEP_TIME = float(env("SLEEP_TIME", "1"))
 
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 
@@ -32,7 +32,8 @@ def run_simulation():
     devices: list[Device] = []
     for i in range(NUMBER_OF_DEVICES):
         dev_type = types_of_devices[i % len(types_of_devices)]
-        devices.append(Device.create_by_type(dev_type))
+        devices.append(Device.create_by_type(dev_type, i))
+
 
     ANOMALY_CYCLE_SEC = 600
     device_phase_offset = {
@@ -55,23 +56,24 @@ def run_simulation():
                 metric = data["metric"]
 
                 if random.random() < 0.00001:
-                    if metric in ["temperature", "voltage", "water", "co2", "fridge"]:
+                    if metric in ["temperature", "voltage", "co2", "fridge"]:
                         data['value'] = random.choice([-999.0, 9999.0])
                     elif metric in ["humidity"]:
                         data['value'] = 500.0
                 else:
-                    if 580 < cycle_time < 600 and random.random() < 0.05:
+                    if 240 < cycle_time < 250:
                         if metric == "temperature":
-                            data['value'] = random.uniform(45.0, 60.0)
+                            data['value'] = random.uniform(60.0, 85.0)
                         elif metric == "co2":
-                            data['value'] = random.uniform(1800.0, 2800.0)
+                            data['value'] = random.uniform(1500.0, 3500.0)
                         elif metric == "fridge":
-                            data['value'] = random.uniform(10.0, 16.0)
+                            data['value'] = random.uniform(15.0, 22.0)
                         elif metric == "voltage":
-                            data['value'] = random.uniform(255.0, 270.0)
+                            data['value'] = random.uniform(280.0, 310.0)
                         elif metric == "water":
-                            if isinstance(data['value'], (int, float)):
-                                data['value'] += random.uniform(2.0, 8.0)
+                            data['value'] += random.uniform(100.0, 300.0)
+                        elif metric == "door":
+                            data['value'] = "ON" if int(personal_time * 5) % 2 == 0 else "OFF"
                         elif metric == "move":
                             data['value'] = True
 

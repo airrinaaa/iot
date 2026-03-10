@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, NAMESPACE_DNS, uuid5
 
 from Sensor import Sensor, Observation
 from StateSensor import StateSensor
@@ -34,6 +34,9 @@ class Device:
     late_data_max_sec = 15
     sensors: list[Sensor] = field(default_factory=list)
 
+    @staticmethod
+    def build_stable_thing_id(device_type: DeviceType, device_index: int) -> UUID:
+        return uuid5(NAMESPACE_DNS, f"iot-simulator:{device_type.value}:{device_index}")
 
     def read_all(self) -> list[Observation]:
         publishing_time = datetime.now(timezone.utc)
@@ -55,8 +58,8 @@ class Device:
         return observations
 
     @staticmethod
-    def create_by_type(deviceType: DeviceType) -> Device:
-        new_id = uuid4()
+    def create_by_type(deviceType: DeviceType, device_index: int) -> Device:
+        new_id = Device.build_stable_thing_id(deviceType, device_index)
         time_skew = random.randint(-300, 300)
         new_device = Device(new_id, deviceType, time_skew=time_skew)
         if deviceType == DeviceType.CLIMATE:
@@ -90,7 +93,7 @@ class Device:
             initial_fridge = random.uniform(3, 6)
             fridge_sensor = AnalogSensor(new_id, "fridge", 1, 8, initial_fridge, 0.03, 0.12)
             oven_sensor = StateSensor(new_id, "oven", 0, 0.0007)
-            smoke_sensor = AlarmSensor(new_id, "smoke", 0.000000000001, 60)
+            smoke_sensor = AlarmSensor(new_id, "smoke", 0.000000000001, 6000)
             new_device.sensors.append(fridge_sensor)
             new_device.sensors.append(oven_sensor)
             new_device.sensors.append(smoke_sensor)

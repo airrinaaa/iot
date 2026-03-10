@@ -29,6 +29,20 @@ services:
       - DOCKER_INFLUXDB_INIT_BUCKET=iot_bucket
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=super-secret-token
 
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    depends_on:
+      - influxdb
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+
   # Kafka Infrastructure
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.2
@@ -89,3 +103,4 @@ services:
 volumes:
   influxdb_data:
   flink_checkpoints:
+  grafana_data:
