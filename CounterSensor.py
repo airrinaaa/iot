@@ -3,7 +3,7 @@ import random
 from uuid import UUID
 
 class CounterSensor(Sensor):
-
+    SENSOR_TYPE = "counter"
     def __init__(self, thing_id: UUID, metric: str, min_inc: float, max_inc: float, initial_value: float):
         super().__init__(thing_id, metric)
         self.min_inc = min_inc

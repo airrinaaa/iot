@@ -3,7 +3,7 @@ import random
 from uuid import UUID
 
 class AnalogSensor(Sensor):
-
+    SENSOR_TYPE = "analog"
     def __init__(self, thing_id: UUID, metric:str, min_value: float, max_value: float, initial_value: float, drift: float, noise: float):
         super().__init__(thing_id, metric)
         self.min_value = min_value

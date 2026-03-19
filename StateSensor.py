@@ -2,6 +2,7 @@ from Sensor import Sensor
 import random
 from uuid import UUID
 class StateSensor(Sensor):
+    SENSOR_TYPE = "state"
     def __init__(self, thing_id: UUID, metric: str, initial_state: int = 0, flip_prob: float = 0.1):
         super().__init__(thing_id, metric)
         self.state = initial_state

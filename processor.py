@@ -6,7 +6,7 @@ import io
 from fastavro import parse_schema, schemaless_reader
 from pyflink.common import Duration, Types
 from pyflink.common.time import Time
-from pyflink.datastream import StreamExecutionEnvironment, OutputTag, ProcessFunction
+from pyflink.datastream import StreamExecutionEnvironment, OutputTag
 from pyflink.datastream.connectors.kafka import (
     KafkaSource,
     KafkaOffsetsInitializer,
@@ -25,15 +25,15 @@ from pyflink.common import Configuration
 from pyflink.datastream.externalized_checkpoint_retention import ExternalizedCheckpointRetention
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
-SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data_topic1")
+SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data_topic2")
 PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data_topic1")
-KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "iot_processor1")
+KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "iot_processor2")
 LATE_DATA_TOPIC = env("LATE_DATA_TOPIC", "late_data_topic1")
+FLINK_PARALLELISM = int(env("FLINK_PARALLELISM", "1"))
 IDLENESS_SEC = 10
-
-WINDOW_SIZE_SEC = 8
 MAX_OUT_OF_ORDER_SEC = 1
-ALLOWED_LATENESS_SEC = 3
+WINDOW_SIZE_SEC = 8
+ALLOWED_LATENESS_SEC = 10
 
 SCHEMA_PATH = env("SCHEMA_PATH", "observation.avsc")
 DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter_topic")
@@ -43,7 +43,7 @@ config.set_string("execution.buffer-timeout", "0")
 config.set_string("state.checkpoints.dir", f"file://{os.getcwd()}/flink-checkpoints")
 
 flink_env = StreamExecutionEnvironment.get_execution_environment(config)
-flink_env.set_parallelism(1)
+flink_env.set_parallelism(FLINK_PARALLELISM)
 flink_env.enable_checkpointing(5000)
 checkpoint_config = flink_env.get_checkpoint_config()
 checkpoint_config.set_checkpoint_timeout(60000)
@@ -71,12 +71,14 @@ source = KafkaSource.builder() \
 
 ds = flink_env.from_source(source, WatermarkStrategy.no_watermarks(), "Kafka bridge")
 
+
 def is_iso_datetime(s: str) -> bool:
     try:
         datetime.fromisoformat(s)
         return True
     except Exception:
         return False
+
 
 def validate_record(record: dict) -> tuple[bool, str]:
     if "thing_id" not in record or not isinstance(record["thing_id"], str) or not record["thing_id"].strip():
@@ -105,6 +107,7 @@ def validate_record(record: dict) -> tuple[bool, str]:
 
     return True, "ok"
 
+
 def safe_decode_validate(avro_bytes: bytes, schema) -> tuple[str, dict]:
     try:
         record = schemaless_reader(io.BytesIO(avro_bytes), schema)
@@ -125,6 +128,24 @@ def safe_decode_validate(avro_bytes: bytes, schema) -> tuple[str, dict]:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "decoded_record": record,
     })
+
+
+def serialize_late_event(record: dict) -> str:
+    event_ts = datetime.fromisoformat(record["event_time"]).timestamp()
+    ingestion_ts = datetime.fromisoformat(record["ingestion_time"]).timestamp()
+
+    window_start_ts = int(event_ts // WINDOW_SIZE_SEC) * WINDOW_SIZE_SEC
+    window_end_ts = window_start_ts + WINDOW_SIZE_SEC
+    allowed_until_ts = window_end_ts + ALLOWED_LATENESS_SEC
+
+    enriched_record = {
+        **record,
+        "late_reason": "dropped_after_allowed_lateness",
+        "late_by_sec": round(max(0.0, ingestion_ts - allowed_until_ts), 3)
+    }
+
+    return json.dumps(enriched_record)
+
 
 with open(SCHEMA_PATH, "rb") as f:
     raw_schema = json.load(f)
@@ -151,56 +172,58 @@ dlq_sink = (
 dlq_stream_serialized = dlq_stream.map(lambda d: json.dumps(d), output_type=Types.STRING())
 dlq_stream_serialized.sink_to(dlq_sink)
 
-watermark_strategy = WatermarkStrategy.for_bounded_out_of_orderness(Duration.of_seconds(MAX_OUT_OF_ORDER_SEC)).with_timestamp_assigner(
-    SensorTimestampAssigner()).with_idleness(Duration.of_seconds(IDLENESS_SEC))
+watermark_strategy = WatermarkStrategy.for_bounded_out_of_orderness(
+    Duration.of_seconds(MAX_OUT_OF_ORDER_SEC)
+).with_timestamp_assigner(
+    SensorTimestampAssigner()
+).with_idleness(
+    Duration.of_seconds(IDLENESS_SEC)
+)
+
 parsed_ds = ok_stream.assign_timestamps_and_watermarks(watermark_strategy)
 
-late_tag = OutputTag("late_data", Types.STRING())
+late_tag = OutputTag("late_data", Types.PICKLED_BYTE_ARRAY())
 
+late_sink = (
+    KafkaSink.builder()
+    .set_bootstrap_servers(KAFKA_BOOTSTRAP)
+    .set_record_serializer(
+        KafkaRecordSerializationSchema.builder()
+        .set_topic(LATE_DATA_TOPIC)
+        .set_value_serialization_schema(SimpleStringSchema())
+        .build()
+    )
+    .set_delivery_guarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+    .build()
+)
 
-class LateDataFilter(ProcessFunction):
-    def __init__(self):
-        self.max_ts = 0
-        self.max_out_of_order_ms = MAX_OUT_OF_ORDER_SEC * 1000
-        self.window_size_ms = WINDOW_SIZE_SEC * 1000
-        self.allowed_lateness_ms = ALLOWED_LATENESS_SEC * 1000
-
-    def process_element(self, value, ctx: 'ProcessFunction.Context'):
-        ts = int(datetime.fromisoformat(value["event_time"]).timestamp() * 1000)
-        if ts > self.max_ts:
-            self.max_ts = ts
-
-        my_wm = self.max_ts - self.max_out_of_order_ms
-        window_end = ts - (ts % self.window_size_ms) + self.window_size_ms
-        cleanup_time = window_end + self.allowed_lateness_ms
-
-        if my_wm >= cleanup_time:
-            value["late_by_sec"] = round((my_wm - cleanup_time) / 1000.0, 1)
-            yield late_tag, json.dumps(value)
-            return
-
-        yield value
-
-
-filtered_ds = parsed_ds.process(LateDataFilter(), output_type=Types.PICKLED_BYTE_ARRAY())
-
-late_sink = KafkaSink.builder().set_bootstrap_servers(KAFKA_BOOTSTRAP).set_record_serializer(
-    KafkaRecordSerializationSchema.builder().set_topic(LATE_DATA_TOPIC).set_value_serialization_schema(
-        SimpleStringSchema()).build()).set_delivery_guarantee(
-    DeliveryGuarantee.AT_LEAST_ONCE).build()
-filtered_ds.get_side_output(late_tag).sink_to(late_sink)
-
-metric_ds_with_windowing = filtered_ds \
-    .key_by(lambda x: x['datastream_id']) \
+windowed_stream = parsed_ds \
+    .key_by(lambda x: x["datastream_id"]) \
     .window(TumblingEventTimeWindows.of(Time.seconds(WINDOW_SIZE_SEC))) \
-    .apply(CollectAll())
+    .allowed_lateness(ALLOWED_LATENESS_SEC * 1000) \
+    .side_output_late_data(late_tag)
+
+metric_ds_with_windowing = windowed_stream.apply(
+    CollectAll(),
+    output_type=Types.PICKLED_BYTE_ARRAY()
+)
 
 metric_ds_with_windowing.print()
+
+late_stream = metric_ds_with_windowing.get_side_output(late_tag)
+
+late_stream_serialized = late_stream.map(
+    serialize_late_event,
+    output_type=Types.STRING()
+)
+
+late_stream_serialized.sink_to(late_sink)
 
 metric_ds_serialized = metric_ds_with_windowing.map(
     lambda x: json.dumps(x),
     output_type=Types.STRING()
 )
+
 processed_sink = (
     KafkaSink.builder()
     .set_bootstrap_servers(KAFKA_BOOTSTRAP)

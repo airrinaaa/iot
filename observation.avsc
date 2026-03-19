@@ -6,6 +6,7 @@
     {"name": "thing_id", "type": "string"},
     {"name": "datastream_id", "type": "string"},
     {"name": "metric", "type": "string"},
+    { "name": "sensor_type", "type": "string" },
     {"name": "seq", "type": "int"},
     {"name": "event_time", "type": "string"},
     {"name": "ingestion_time", "type": "string"},

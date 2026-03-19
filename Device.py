@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 
-from uuid import UUID, uuid4, NAMESPACE_DNS, uuid5
+from uuid import UUID, NAMESPACE_DNS, uuid5
 
 from Sensor import Sensor, Observation
 from StateSensor import StateSensor
@@ -26,11 +26,11 @@ class Device:
     thing_id: UUID
     device_type: DeviceType
     time_skew: int = 0
-    jitter_prob: float = 0.15
+    jitter_prob: float = 0.0
     jitter_max: int = 900
-    shuffle_prob: float = 0.03
-    late_data_prob: float = 0.0001
-    late_data_min_sec = 5
+    shuffle_prob: float = 0.0
+    late_data_prob: float = 0.35
+    late_data_min_sec = 3
     late_data_max_sec = 15
     sensors: list[Sensor] = field(default_factory=list)
 

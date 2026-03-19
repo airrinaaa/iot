@@ -4,6 +4,7 @@ from typing import Literal, TypeAlias, Any
 
 StateText: TypeAlias = Literal["ON", "OFF"]
 ValueType: TypeAlias = float | int | StateText | bool
+SensorType: TypeAlias = Literal["analog", "counter", "state", "alarm"]
 from uuid import UUID, uuid5, NAMESPACE_URL
 
 
@@ -12,6 +13,7 @@ class Observation:
     thing_id: UUID
     datastream_id: UUID
     metric: str
+    sensor_type: SensorType
     seq: int
     event_time: datetime
     ingestion_time: datetime
@@ -22,17 +24,23 @@ class Observation:
             "thing_id": self.thing_id,
             "datastream_id": self.datastream_id,
             "metric": self.metric,
+            "sensor_type": self.sensor_type,
             "seq": self.seq,
             "event_time": self.event_time,
             "ingestion_time": self.ingestion_time,
             "value": self.value,
         }
 class Sensor:
+    SENSOR_TYPE: SensorType | None = None
     def __init__(self, thing_id: UUID, metric: str):
         self.thing_id = thing_id
         self.metric = metric
         self.datastream_id = uuid5(NAMESPACE_URL, f"{thing_id}:{metric}")
         self.seq = 0
+        if self.SENSOR_TYPE is None:
+            raise ValueError(f"SENSOR_TYPE is not defined for {self.__class__.__name__}")
+
+        self.sensor_type = self.SENSOR_TYPE
 
     def generate_observation(self) -> Observation:
         event_time = datetime.now(timezone.utc)
@@ -46,6 +54,7 @@ class Sensor:
             thing_id=self.thing_id,
             datastream_id=self.datastream_id,
             metric=self.metric,
+            sensor_type=self.sensor_type,
             seq=self.seq,
             event_time=event_time,
             ingestion_time=ingestion_time,

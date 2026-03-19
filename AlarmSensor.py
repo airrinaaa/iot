@@ -4,7 +4,7 @@ import random
 from uuid import UUID
 
 class AlarmSensor(Sensor):
-
+    SENSOR_TYPE = "alarm"
     def __init__(self, thing_id:UUID, metric:str, trigger_prob: float, cooldown:int):
         super().__init__(thing_id, metric)
         self.trigger_prob = trigger_prob
