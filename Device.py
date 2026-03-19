@@ -26,12 +26,9 @@ class Device:
     thing_id: UUID
     device_type: DeviceType
     time_skew: int = 0
-    jitter_prob: float = 0.0
+    jitter_prob: float = 0.0001
     jitter_max: int = 900
-    shuffle_prob: float = 0.0
-    late_data_prob: float = 0.35
-    late_data_min_sec = 3
-    late_data_max_sec = 15
+    shuffle_prob: float = 0.001
     sensors: list[Sensor] = field(default_factory=list)
 
     @staticmethod
@@ -48,10 +45,6 @@ class Device:
                 observation.event_time += timedelta(milliseconds=self.time_skew)
             if random.random() < self.jitter_prob:
                 observation.event_time -= timedelta(milliseconds=random.randint(50, self.jitter_max))
-            if random.random() < self.late_data_prob:
-                observation.event_time -= timedelta(
-                    seconds=random.randint(self.late_data_min_sec, self.late_data_max_sec)
-                )
             observations.append(observation)
         if random.random() < self.shuffle_prob:
             random.shuffle(observations)

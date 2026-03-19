@@ -2,6 +2,7 @@ import json
 import time
 import io
 import random
+from collections import deque
 from config import env
 
 from fastavro import schemaless_writer, parse_schema
@@ -42,6 +43,10 @@ def run_simulation():
     }
 
     start_time = time.time()
+    PUBLISH_DELAY_SEC = 12
+    PUBLISH_DELAY_PROB = 0.0001
+    delayed_buffer: deque = deque()
+
     while True:
         elapsed_time = time.time() - start_time
         for device in devices:
@@ -111,7 +116,16 @@ def run_simulation():
                     avro_bytes = bytes_io.getvalue()
 
                 topic = f"{MQTT_TOPIC_PREFIX}/{device.device_type.value}"
-                client.publish(topic, payload=avro_bytes)
+                if not is_dlq and random.random() < PUBLISH_DELAY_PROB:
+                    delayed_buffer.append((time.time() + PUBLISH_DELAY_SEC, topic, avro_bytes))
+                else:
+                    client.publish(topic, payload=avro_bytes)
+
+        now = time.time()
+        while delayed_buffer and delayed_buffer[0][0] <= now:
+            _, t, b = delayed_buffer.popleft()
+            client.publish(t, payload=b)
+            print(f"[DELAYED PUBLISH] topic={t}")
 
         time.sleep(SLEEP_TIME)
 

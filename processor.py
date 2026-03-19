@@ -4,8 +4,7 @@ import os
 import io
 
 from fastavro import parse_schema, schemaless_reader
-from pyflink.common import Duration, Types
-from pyflink.common.time import Time
+from pyflink.common import Duration, Types, Configuration
 from pyflink.datastream import StreamExecutionEnvironment, OutputTag
 from pyflink.datastream.connectors.kafka import (
     KafkaSource,
@@ -15,28 +14,30 @@ from pyflink.datastream.connectors.kafka import (
 )
 from pyflink.datastream.connectors import DeliveryGuarantee
 from pyflink.common.watermark_strategy import WatermarkStrategy
-from pyflink.datastream.window import TumblingEventTimeWindows
 from pyflink.common.serialization import SimpleStringSchema, ByteArraySchema
+from pyflink.datastream.externalized_checkpoint_retention import ExternalizedCheckpointRetention
 
 from CollectAll import CollectAll
 from SensorTimestampAssigner import SensorTimestampAssigner
 from config import env
-from pyflink.common import Configuration
-from pyflink.datastream.externalized_checkpoint_retention import ExternalizedCheckpointRetention
+
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
 SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data_topic2")
 PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data_topic1")
 KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "iot_processor2")
 LATE_DATA_TOPIC = env("LATE_DATA_TOPIC", "late_data_topic1")
+DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter_topic")
 FLINK_PARALLELISM = int(env("FLINK_PARALLELISM", "1"))
-IDLENESS_SEC = 10
-MAX_OUT_OF_ORDER_SEC = 1
-WINDOW_SIZE_SEC = 8
-ALLOWED_LATENESS_SEC = 10
+
+IDLENESS_SEC = 20
+MAX_OUT_OF_ORDER_SEC = 2
+WINDOW_SIZE_SEC = 10
+ALLOWED_LATENESS_SEC = 15
 
 SCHEMA_PATH = env("SCHEMA_PATH", "observation.avsc")
-DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter_topic")
+
+VALID_SENSOR_TYPES = {"analog", "counter", "state", "alarm"}
 
 config = Configuration()
 config.set_string("execution.buffer-timeout", "0")
@@ -53,9 +54,7 @@ checkpoint_config.set_externalized_checkpoint_retention(
     ExternalizedCheckpointRetention.RETAIN_ON_CANCELLATION
 )
 
-current_dir = os.getcwd()
 jar_path = f"file://{os.getcwd()}/jars/flink-sql-connector-kafka-4.0.1-2.0.jar"
-
 flink_env.add_jars(jar_path)
 
 print(f"Середовище налаштовано. JAR завантажено: {jar_path}")
@@ -84,22 +83,22 @@ def validate_record(record: dict) -> tuple[bool, str]:
     if "thing_id" not in record or not isinstance(record["thing_id"], str) or not record["thing_id"].strip():
         return False, "invalid_thing_id"
 
-    if "datastream_id" not in record or not isinstance(record["datastream_id"], str) or not record[
-        "datastream_id"].strip():
+    if "datastream_id" not in record or not isinstance(record["datastream_id"], str) or not record["datastream_id"].strip():
         return False, "invalid_datastream_id"
 
     if "metric" not in record or not isinstance(record["metric"], str) or not record["metric"].strip():
         return False, "invalid_metric"
 
+    if "sensor_type" not in record or not isinstance(record["sensor_type"], str) or record["sensor_type"] not in VALID_SENSOR_TYPES:
+        return False, "invalid_sensor_type"
+
     if "seq" not in record or not isinstance(record["seq"], int):
         return False, "invalid_seq"
 
-    if "event_time" not in record or not isinstance(record["event_time"], str) or not record[
-        "event_time"].strip() or not is_iso_datetime(record["event_time"]):
+    if "event_time" not in record or not isinstance(record["event_time"], str) or not record["event_time"].strip() or not is_iso_datetime(record["event_time"]):
         return False, "invalid_event_time"
 
-    if "ingestion_time" not in record or not isinstance(record["ingestion_time"], str) or not record[
-        "ingestion_time"].strip() or not is_iso_datetime(record["ingestion_time"]):
+    if "ingestion_time" not in record or not isinstance(record["ingestion_time"], str) or not record["ingestion_time"].strip() or not is_iso_datetime(record["ingestion_time"]):
         return False, "invalid_ingestion_time"
 
     if "value" not in record or record["value"] is None:
@@ -128,23 +127,6 @@ def safe_decode_validate(avro_bytes: bytes, schema) -> tuple[str, dict]:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "decoded_record": record,
     })
-
-
-def serialize_late_event(record: dict) -> str:
-    event_ts = datetime.fromisoformat(record["event_time"]).timestamp()
-    ingestion_ts = datetime.fromisoformat(record["ingestion_time"]).timestamp()
-
-    window_start_ts = int(event_ts // WINDOW_SIZE_SEC) * WINDOW_SIZE_SEC
-    window_end_ts = window_start_ts + WINDOW_SIZE_SEC
-    allowed_until_ts = window_end_ts + ALLOWED_LATENESS_SEC
-
-    enriched_record = {
-        **record,
-        "late_reason": "dropped_after_allowed_lateness",
-        "late_by_sec": round(max(0.0, ingestion_ts - allowed_until_ts), 3)
-    }
-
-    return json.dumps(enriched_record)
 
 
 with open(SCHEMA_PATH, "rb") as f:
@@ -197,23 +179,19 @@ late_sink = (
     .build()
 )
 
-windowed_stream = parsed_ds \
+metric_ds_with_windowing = parsed_ds \
     .key_by(lambda x: x["datastream_id"]) \
-    .window(TumblingEventTimeWindows.of(Time.seconds(WINDOW_SIZE_SEC))) \
-    .allowed_lateness(ALLOWED_LATENESS_SEC * 1000) \
-    .side_output_late_data(late_tag)
-
-metric_ds_with_windowing = windowed_stream.apply(
-    CollectAll(),
-    output_type=Types.PICKLED_BYTE_ARRAY()
-)
+    .process(
+        CollectAll(WINDOW_SIZE_SEC, ALLOWED_LATENESS_SEC, late_tag),
+        output_type=Types.PICKLED_BYTE_ARRAY()
+    )
 
 metric_ds_with_windowing.print()
 
 late_stream = metric_ds_with_windowing.get_side_output(late_tag)
 
 late_stream_serialized = late_stream.map(
-    serialize_late_event,
+    lambda d: json.dumps(d),
     output_type=Types.STRING()
 )
 
