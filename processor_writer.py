@@ -7,8 +7,8 @@ from kafka import KafkaConsumer
 from config import env
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
-PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data_topic1")
-KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "processed_writer_topic1")
+PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data_topic2")
+KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "processed_writer_topic2")
 
 INFLUX_URL = env("INFLUX_URL", "http://localhost:8086")
 INFLUX_BUCKET = env("INFLUX_BUCKET", "iot_bucket")
@@ -21,9 +21,8 @@ consumer = KafkaConsumer(
     bootstrap_servers=[KAFKA_BOOTSTRAP],
     group_id=KAFKA_GROUP_ID,
     auto_offset_reset="latest",
-    enable_auto_commit=True,
+    enable_auto_commit=False,
 )
-
 client = influxdb_client.InfluxDBClient(
     url=INFLUX_URL,
     token=INFLUX_TOKEN,
@@ -32,8 +31,10 @@ client = influxdb_client.InfluxDBClient(
 
 write_api = client.write_api(write_options=SYNCHRONOUS)
 
+
 def ms_to_datetime(ms: int) -> datetime:
     return datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc)
+
 
 print("Очікування даних з Kafka для запису в InfluxDB...")
 
@@ -54,10 +55,13 @@ for message in consumer:
         window_end = int(data["window_end"])
         count = int(data["count"])
         latency = int(data["latency"])
+        end_to_end_latency = int(data["end_to_end_latency"])
         result_time = int(data["result_time"])
         max_event_time = int(data["max_event_time"])
+        max_publish_time = int(data["max_publish_time"])
         window_duration_sec = (window_end - window_start) / 1000.0
         throughput = count / window_duration_sec if window_duration_sec > 0 else 0.0
+        fire_index = int(data.get("fire_index", 1))
     except (KeyError, TypeError, ValueError) as e:
         print(f"Відсутнє поле {e}, пропускаємо запис.")
         continue
@@ -82,9 +86,12 @@ for message in consumer:
                 .field("average", average)
                 .field("result_time", result_time)
                 .field("max_event_time", max_event_time)
+                .field("max_publish_time", max_publish_time)
                 .field("window_duration_sec", window_duration_sec)
                 .field("latency", latency)
-                .field("throughput", throughput))
+                .field("end_to_end_latency", end_to_end_latency)
+                .field("throughput", throughput)
+                .tag("fire_index", str(fire_index)))
         except (KeyError, TypeError, ValueError):
             pass
 
@@ -104,12 +111,14 @@ for message in consumer:
                 .field("first_value", first_value)
                 .field("last_value", last_value)
                 .field("delta", delta)
-                 .field("result_time", result_time)
-                 .field("max_event_time", max_event_time)
-                 .field("window_duration_sec", window_duration_sec)
-                 .field("latency", latency)
-                 .field("throughput", throughput))
-
+                .field("result_time", result_time)
+                .field("max_event_time", max_event_time)
+                .field("max_publish_time", max_publish_time)
+                .field("window_duration_sec", window_duration_sec)
+                .field("latency", latency)
+                .field("end_to_end_latency", end_to_end_latency)
+                .field("throughput", throughput)
+                .tag("fire_index", str(fire_index)))
         except (KeyError, TypeError, ValueError):
             pass
 
@@ -131,10 +140,12 @@ for message in consumer:
                 .field("distinct_counts", distinct_counts)
                 .field("result_time", result_time)
                 .field("max_event_time", max_event_time)
+                .field("max_publish_time", max_publish_time)
                 .field("window_duration_sec", window_duration_sec)
                 .field("latency", latency)
-                .field("throughput", throughput))
-
+                .field("end_to_end_latency", end_to_end_latency)
+                .field("throughput", throughput)
+                .tag("fire_index", str(fire_index)))
         except (KeyError, TypeError, ValueError):
             pass
 
@@ -156,11 +167,15 @@ for message in consumer:
                 .field("true_count", true_count)
                 .field("result_time", result_time)
                 .field("max_event_time", max_event_time)
+                .field("max_publish_time", max_publish_time)
                 .field("window_duration_sec", window_duration_sec)
                 .field("latency", latency)
-                .field("throughput", throughput))
+                .field("end_to_end_latency", end_to_end_latency)
+                .field("throughput", throughput)
+                .tag("fire_index", str(fire_index)))
         except (KeyError, TypeError, ValueError):
             pass
 
     if p is not None:
         write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=p)
+        consumer.commit()

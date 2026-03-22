@@ -115,8 +115,13 @@ class CollectAll(KeyedProcessFunction):
         allowed_until_ms = window_end_ms + self.allowed_lateness_ms
 
         return {
-            **record,
-            "late_reason": "dropped_after_allowed_lateness",
+            "thing_id": record.get("thing_id"),
+            "datastream_id": record.get("datastream_id"),
+            "metric": record.get("metric"),
+            "sensor_type": record.get("sensor_type"),
+            "seq": record.get("seq"),
+            "event_time": record.get("event_time"),
+            "publish_time": record.get("publish_time"),
             "late_by_sec": round(max(0.0, (arrival_time_ms - allowed_until_ms) / 1000.0), 3),
         }
 
@@ -127,7 +132,9 @@ class CollectAll(KeyedProcessFunction):
             "sensor_type": sensor_type.value,
             "metric": value["metric"],
             "count": 0,
+            "seen_seq": set(),
             "max_event_time": 0,
+            "max_publish_time": 0,
             "fire_index": 0,
             "first_emitted": False,
             "main_timer": window_end_ms - 1,
@@ -161,11 +168,14 @@ class CollectAll(KeyedProcessFunction):
 
         return bucket
 
-    def update_bucket(self, bucket: dict, value: dict, event_time_ms: int):
+    def update_bucket(self, bucket: dict, value: dict, event_time_ms: int, publish_time_ms: int):
         bucket["count"] += 1
 
         if event_time_ms > bucket["max_event_time"]:
             bucket["max_event_time"] = event_time_ms
+
+        if publish_time_ms > bucket["max_publish_time"]:
+            bucket["max_publish_time"] = publish_time_ms
 
         sensor_type = bucket["sensor_type"]
 
@@ -229,6 +239,9 @@ class CollectAll(KeyedProcessFunction):
         max_event_time = bucket["max_event_time"]
         latency = result_time - max_event_time if max_event_time > 0 else 0
 
+        max_publish_time = bucket["max_publish_time"]
+        end_to_end_latency = result_time - max_publish_time if max_publish_time > 0 else 0
+
         fire_index = bucket["fire_index"]
         is_late_firing = fire_index > 1
         sensor_type = bucket["sensor_type"]
@@ -251,7 +264,9 @@ class CollectAll(KeyedProcessFunction):
                 "window_end": window_end_ms,
                 "result_time": result_time,
                 "max_event_time": max_event_time,
+                "max_publish_time": max_publish_time,
                 "latency": latency,
+                "end_to_end_latency": end_to_end_latency,
                 "fire_index": fire_index,
                 "is_late_firing": is_late_firing,
             }
@@ -272,7 +287,9 @@ class CollectAll(KeyedProcessFunction):
                 "window_end": window_end_ms,
                 "result_time": result_time,
                 "max_event_time": max_event_time,
+                "max_publish_time": max_publish_time,
                 "latency": latency,
+                "end_to_end_latency": end_to_end_latency,
                 "fire_index": fire_index,
                 "is_late_firing": is_late_firing,
             }
@@ -292,7 +309,9 @@ class CollectAll(KeyedProcessFunction):
                 "window_end": window_end_ms,
                 "result_time": result_time,
                 "max_event_time": max_event_time,
+                "max_publish_time": max_publish_time,
                 "latency": latency,
+                "end_to_end_latency": end_to_end_latency,
                 "fire_index": fire_index,
                 "is_late_firing": is_late_firing,
             }
@@ -319,13 +338,16 @@ class CollectAll(KeyedProcessFunction):
                 "window_end": window_end_ms,
                 "result_time": result_time,
                 "max_event_time": max_event_time,
+                "max_publish_time": max_publish_time,
                 "latency": latency,
+                "end_to_end_latency": end_to_end_latency,
                 "fire_index": fire_index,
                 "is_late_firing": is_late_firing,
             }
 
     def process_element(self, value: dict, ctx: 'KeyedProcessFunction.Context'):
         event_time_ms = int(datetime.fromisoformat(value["event_time"]).timestamp() * 1000)
+        publish_time_ms = int(datetime.fromisoformat(value["publish_time"]).timestamp() * 1000)
         arrival_time_ms = int(time.time() * 1000)
 
         window_start_ms, window_end_ms = self.get_window_bounds(event_time_ms)
@@ -342,8 +364,13 @@ class CollectAll(KeyedProcessFunction):
             bucket = self.create_bucket(value, window_end_ms, cleanup_time_ms)
             ctx.timer_service().register_event_time_timer(bucket["main_timer"])
             ctx.timer_service().register_event_time_timer(bucket["cleanup_timer"])
+        current_seq = value["seq"]
 
-        self.update_bucket(bucket, value, event_time_ms)
+        if current_seq in bucket["seen_seq"]:
+            return
+        bucket["seen_seq"].add(current_seq)
+
+        self.update_bucket(bucket, value, event_time_ms, publish_time_ms)
         self.save_bucket(window_start_ms, bucket)
 
         if not bucket["first_emitted"] and current_watermark >= bucket["main_timer"]:

@@ -24,10 +24,10 @@ from config import env
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
 SOURCE_TOPIC = env("SOURCE_TOPIC", "sensors_data_topic2")
-PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data_topic1")
+PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data_topic2")
 KAFKA_GROUP_ID = env("KAFKA_GROUP_ID", "iot_processor2")
-LATE_DATA_TOPIC = env("LATE_DATA_TOPIC", "late_data_topic1")
-DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter_topic")
+LATE_DATA_TOPIC = env("LATE_DATA_TOPIC", "late_data_topic2")
+DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter_topic3")
 FLINK_PARALLELISM = int(env("FLINK_PARALLELISM", "1"))
 
 IDLENESS_SEC = 20
@@ -98,12 +98,10 @@ def validate_record(record: dict) -> tuple[bool, str]:
     if "event_time" not in record or not isinstance(record["event_time"], str) or not record["event_time"].strip() or not is_iso_datetime(record["event_time"]):
         return False, "invalid_event_time"
 
-    if "ingestion_time" not in record or not isinstance(record["ingestion_time"], str) or not record["ingestion_time"].strip() or not is_iso_datetime(record["ingestion_time"]):
-        return False, "invalid_ingestion_time"
-
     if "value" not in record or record["value"] is None:
         return False, "invalid_value"
-
+    if "publish_time" not in record or not isinstance(record["publish_time"], str) or not record["publish_time"].strip() or not is_iso_datetime(record["publish_time"]):
+        return False, "invalid_publish_time"
     return True, "ok"
 
 
@@ -125,7 +123,11 @@ def safe_decode_validate(avro_bytes: bytes, schema) -> tuple[str, dict]:
     return ("dlq", {
         "error": reason,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "decoded_record": record,
+        "thing_id": str(record.get("thing_id", ""))[:100],
+        "datastream_id": str(record.get("datastream_id", ""))[:100],
+        "metric": str(record.get("metric", ""))[:100],
+        "sensor_type": str(record.get("sensor_type", ""))[:50],
+        "seq": record.get("seq"),
     })
 
 

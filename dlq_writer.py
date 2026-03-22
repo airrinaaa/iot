@@ -5,11 +5,11 @@ from kafka import KafkaConsumer
 import influxdb_client
 from influxdb_client import Point
 from influxdb_client.client.write_api import SYNCHRONOUS
-
+import hashlib
 from config import env
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
-DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter_topic1")
+DLQ_TOPIC = env("DLQ_TOPIC", "dead_letter_topic3")
 
 INFLUX_URL = env("INFLUX_URL", "http://localhost:8086")
 INFLUX_BUCKET = env("INFLUX_BUCKET", "iot_bucket")
@@ -21,7 +21,9 @@ consumer = KafkaConsumer(
     group_id="dlq_writer_v3",
     bootstrap_servers=[KAFKA_BOOTSTRAP],
     api_version=(0, 10, 2),
-
+    enable_auto_commit=False,
+    max_partition_fetch_bytes=20 * 1024 * 1024,
+    fetch_max_bytes=20 * 1024 * 1024,
 )
 
 client = influxdb_client.InfluxDBClient(
@@ -43,17 +45,19 @@ for message in consumer:
             data = json.loads(data)
 
         reason = data.get("error", "unknown")
-
+        dlq_id = hashlib.sha256(raw_payload.encode("utf-8")).hexdigest()
         p = (
             Point("dlq_metrics")
             .tag("reason", reason)
             .tag("stage", "flink_decoder")
+            .tag("dlq_id", dlq_id)
             .field("dlq_count", 1)
-            .time(datetime.now(timezone.utc))
+            .time(datetime.fromtimestamp(message.timestamp / 1000.0, tz=timezone.utc))
         )
 
         write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=p)
         print(f"Записано помилку в InfluxDB: {reason}")
+        consumer.commit()
 
     except Exception as e:
         print(f"Помилка обробки DLQ повідомлення: {e}")

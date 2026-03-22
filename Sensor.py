@@ -16,7 +16,6 @@ class Observation:
     sensor_type: SensorType
     seq: int
     event_time: datetime
-    ingestion_time: datetime
     value: ValueType
 
     def to_dict(self) -> dict[str, Any]:
@@ -27,7 +26,6 @@ class Observation:
             "sensor_type": self.sensor_type,
             "seq": self.seq,
             "event_time": self.event_time,
-            "ingestion_time": self.ingestion_time,
             "value": self.value,
         }
 class Sensor:
@@ -57,7 +55,6 @@ class Sensor:
             sensor_type=self.sensor_type,
             seq=self.seq,
             event_time=event_time,
-            ingestion_time=ingestion_time,
             value=value,
         )
 
