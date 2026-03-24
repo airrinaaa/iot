@@ -4,19 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9984b7c6-8522-4df3-9107-f2a69f0610c3" name="Changes" comment="anomalies and concept drift update">
+    <list default="true" id="9984b7c6-8522-4df3-9107-f2a69f0610c3" name="Changes" comment="finishing">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AlarmSensor.py" beforeDir="false" afterPath="$PROJECT_DIR$/AlarmSensor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AnalogSensor.py" beforeDir="false" afterPath="$PROJECT_DIR$/AnalogSensor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CollectAll.py" beforeDir="false" afterPath="$PROJECT_DIR$/CollectAll.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CounterSensor.py" beforeDir="false" afterPath="$PROJECT_DIR$/CounterSensor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Device.py" beforeDir="false" afterPath="$PROJECT_DIR$/Device.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Sensor.py" beforeDir="false" afterPath="$PROJECT_DIR$/Sensor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/StateSensor.py" beforeDir="false" afterPath="$PROJECT_DIR$/StateSensor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/anomaly_detector.py" beforeDir="false" afterPath="$PROJECT_DIR$/anomaly_detector.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/bridge.py" beforeDir="false" afterPath="$PROJECT_DIR$/bridge.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/observation.avsc" beforeDir="false" afterPath="$PROJECT_DIR$/observation.avsc" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/processor.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -500,7 +493,8 @@
       <workItem from="1774096632860" duration="17027000" />
       <workItem from="1774183232586" duration="8302000" />
       <workItem from="1774194686866" duration="24624000" />
-      <workItem from="1774253110234" duration="29413000" />
+      <workItem from="1774253110234" duration="33935000" />
+      <workItem from="1774350403017" duration="10840000" />
     </task>
     <task id="LOCAL-00001" summary="sensors and sending messages">
       <option name="closed" value="true" />
@@ -614,7 +608,15 @@
       <option name="project" value="LOCAL" />
       <updated>1774333516594</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="finishing">
+      <option name="closed" value="true" />
+      <created>1774346070832</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1774346070832</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -645,22 +647,23 @@
     <MESSAGE value="custom CollectAll" />
     <MESSAGE value="fixed" />
     <MESSAGE value="anomalies and concept drift update" />
-    <option name="LAST_COMMIT_MESSAGE" value="anomalies and concept drift update" />
+    <MESSAGE value="finishing" />
+    <option name="LAST_COMMIT_MESSAGE" value="finishing" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/Iot$receiver.coverage" NAME="receiver Coverage Results" MODIFIED="1772401766383" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$late_data_writer.coverage" NAME="late_data_writer Coverage Results" MODIFIED="1774344279168" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$late_data_writer.coverage" NAME="late_data_writer Coverage Results" MODIFIED="1774348568919" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$dlq_writer.coverage" NAME="dlq_writer Coverage Results" MODIFIED="1774348566256" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$.coverage" NAME=" Coverage Results" MODIFIED="1773821576577" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/Iot$dlq_writer.coverage" NAME="dlq_writer Coverage Results" MODIFIED="1774344276287" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$Device.coverage" NAME="Device Coverage Results" MODIFIED="1772966870334" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$anomaly_detector.coverage" NAME="anomaly_detector Coverage Results" MODIFIED="1774345102740" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$bridge.coverage" NAME="bridge Coverage Results" MODIFIED="1774344266048" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$anomaly_detector.coverage" NAME="anomaly_detector Coverage Results" MODIFIED="1774359463275" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$CollectAll.coverage" NAME="CollectAll Coverage Results" MODIFIED="1774345843053" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$main.coverage" NAME="main Coverage Results" MODIFIED="1774345343845" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$processor.coverage" NAME="processor Coverage Results" MODIFIED="1774344745583" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$bridge.coverage" NAME="bridge Coverage Results" MODIFIED="1774359469788" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$main.coverage" NAME="main Coverage Results" MODIFIED="1774360583521" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$processor.coverage" NAME="processor Coverage Results" MODIFIED="1774359472581" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$iot_simulator.coverage" NAME="iot_simulator Coverage Results" MODIFIED="1771168943822" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$data_publisher.coverage" NAME="data_publisher Coverage Results" MODIFIED="1772986193353" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Iot$animaly_detector.coverage" NAME="animaly_detector Coverage Results" MODIFIED="1773141883962" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Iot$processor_writer.coverage" NAME="processor_writer Coverage Results" MODIFIED="1774344274095" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Iot$processor_writer.coverage" NAME="processor_writer Coverage Results" MODIFIED="1774348562738" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

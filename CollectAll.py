@@ -413,14 +413,6 @@ class CollectAll(KeyedProcessFunction):
         if bucket["first_emitted"]:
             bucket["fire_index"] += 1
             self.save_bucket(window_start_ms, bucket)
-            window_start = datetime.fromtimestamp(window_start_ms / 1000.0).strftime('%H:%M:%S')
-            window_end = datetime.fromtimestamp(window_end_ms / 1000.0).strftime('%H:%M:%S')
-            print(
-                f"[LATE FIRING] key={str(ctx.get_current_key())[:8]}... "
-                f"window={window_start}-{window_end} "
-                f"fire_index={bucket['fire_index']}"
-            )
-
             yield self.build_result(ctx.get_current_key(), window_start_ms, window_end_ms, bucket)
             return
 

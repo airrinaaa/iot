@@ -34,8 +34,8 @@ dirty_models = set()
 
 SAVE_EVERY = 2000
 THRESHOLD = 0.9
-MIN_SAMPLES_FOR_ANOMALY = 80
-MIN_SAMPLES_FOR_DRIFT = 80
+MIN_SAMPLES_FOR_ANOMALY = 100
+MIN_SAMPLES_FOR_DRIFT = 100
 DRIFT_COOLDOWN_WINDOWS = 20
 
 ADWIN_DELTA = 0.001
@@ -61,15 +61,28 @@ write_api = client.write_api(write_options=SYNCHRONOUS)
 
 
 def create_model():
+    z_limits = {
+        "average": (-3.0, 3.0),
+        "min_value": (-3.0, 3.0),
+        "max_value": (-3.0, 3.0),
+        "spread": (-3.0, 3.0),
+        "delta": (-3.0, 3.0),
+        "rate": (-3.0, 3.0),
+        "distinct_counts": (-3.0, 3.0),
+        "activity_level": (-3.0, 3.0),
+        "time": (-3.0, 3.0),
+        "day_of_week": (-3.0, 3.0),
+    }
     return compose.Pipeline(
         preprocessing.StandardScaler(),
         anomaly.HalfSpaceTrees(
-            n_trees=50,
-            height=10,
-            window_size=50,
+            n_trees=25,
+            height=6,
+            window_size=100,
+            limits=z_limits,
             seed=42
-        ))
-
+        )
+    )
 
 def create_drift_detector():
     return ADWIN(
@@ -516,6 +529,21 @@ try:
                     f"samples_before={ml_models[datastream_id]['count'] - 1} | "
                     f"reset_count={ml_models[datastream_id]['reset_count']}"
                 )
+                print(
+                    f"КРИТИЧНА ПОДІЯ! Сенсор {datastream_id}({metric}). Smoke detected, Score: {anomaly_score:.3f}"
+                )
+                p = (Point(INFLUX_MEASUREMENT)
+                     .tag("sensor_type", "alarm")
+                     .tag("metric", metric)
+                     .tag("datastream_id", datastream_id)
+                     .time(ms_to_datetime(window_end))
+                     .field("true_count", true_count)
+                     .field("anomaly_score", anomaly_score))
+                try:
+                    write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=p)
+                except Exception as e:
+                    print(f"Помилка запису в Influx: {e}")
+
             elif metric == "move":
                 features = {
                     "activity_level": true_ratio,
@@ -565,23 +593,7 @@ try:
                         dirty_models.add(datastream_id)
                         save_ml_models()
 
-                if metric == "smoke":
-                    print(
-                        f"КРИТИЧНА ПОДІЯ! Сенсор {datastream_id}({metric}). Smoke detected, Score: {anomaly_score:.3f}"
-                    )
-                    p = (Point(INFLUX_MEASUREMENT)
-                         .tag("sensor_type", "alarm")
-                         .tag("metric", metric)
-                         .tag("datastream_id", datastream_id)
-                         .time(ms_to_datetime(window_end))
-                         .field("true_count", true_count)
-                         .field("anomaly_score", anomaly_score))
-                    try:
-                        write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=p)
-                    except Exception as e:
-                        print(f"Помилка запису в Influx: {e}")
-
-                elif anomaly_score > THRESHOLD and ml_models[datastream_id]['count'] >= MIN_SAMPLES_FOR_ANOMALY:
+                if anomaly_score > THRESHOLD and ml_models[datastream_id]['count'] >= MIN_SAMPLES_FOR_ANOMALY:
                     print(
                         f"ВИЯВЛЕНО АНОМАЛІЮ! Сенсор {datastream_id}({metric}). Значення {true_count:.2f}, Score: {anomaly_score:.3f}"
                     )

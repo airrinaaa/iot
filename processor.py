@@ -213,7 +213,7 @@ metric_ds_with_windowing = parsed_ds \
         output_type=Types.PICKLED_BYTE_ARRAY()
     )
 
-metric_ds_with_windowing.print()
+#metric_ds_with_windowing.print()
 
 late_stream = metric_ds_with_windowing.get_side_output(late_tag)
 
@@ -223,6 +223,20 @@ late_stream_serialized = late_stream.map(
 )
 
 late_stream_serialized.sink_to(late_sink)
+
+late_firing_stream = metric_ds_with_windowing \
+    .filter(lambda record: record.get("is_late_firing")) \
+    .map(
+        lambda record: (
+            f"[LATE FIRING] key={str(record['datastream_id'])}... "
+            f"metric={record['metric']} "
+            f"window={record['window']} "
+            f"fire_index={record['fire_index']}"
+        ),
+        output_type=Types.STRING()
+    )
+
+late_firing_stream.print()
 
 metric_ds_serialized = metric_ds_with_windowing.map(
     lambda x: json.dumps(x),

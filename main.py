@@ -66,7 +66,7 @@ def run_simulation():
     #для запізнілих подій
     WITHIN_ALLOWED_DELAY_SEC = 8
     TOO_LATE_DELAY_SEC = 30
-    WITHIN_ALLOWED_DELAY_PROB = 0.0001
+    WITHIN_ALLOWED_DELAY_PROB = 0.00001
     TOO_LATE_DELAY_PROB = 0.00001
 
     delayed_buffer: deque = deque()
@@ -88,14 +88,14 @@ def run_simulation():
 
 
                 #аномалії(неможливі значення)
-                if random.random() < 0.00001:
+                if random.random() < 0.0001:
                     if metric in ["temperature", "voltage", "co2", "fridge"]:
                         data["value"] = random.choice([-999.0, 9999.0])
                     elif metric in ["humidity"]:
                         data["value"] = 500.0
                 else:
                     #період аномалій у циклі
-                    if 85 < cycle_time < 90 and random.random() < 0.00001:
+                    if 360 < cycle_time < 370 and random.random() < 0.5:
                         if metric == "temperature":
                             data["value"] = random.uniform(70.0, 95.0)
                         elif metric == "humidity":
