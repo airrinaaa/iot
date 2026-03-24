@@ -10,6 +10,11 @@ from uuid import UUID, uuid5, NAMESPACE_URL
 
 @dataclass
 class Observation:
+    """
+    клас для збереження одного спостереження від сенсора
+    містить унікальні ідентифікатори сенсора, потоку,
+    вимірювану метрику, тип сенсора, номер повідомлення, час подій, та значення
+    """
     thing_id: UUID
     datastream_id: UUID
     metric: str
@@ -19,6 +24,9 @@ class Observation:
     value: ValueType
 
     def to_dict(self) -> dict[str, Any]:
+        """
+        перетворення спостереження на словник
+        """
         return {
             "thing_id": self.thing_id,
             "datastream_id": self.datastream_id,
@@ -29,6 +37,9 @@ class Observation:
             "value": self.value,
         }
 class Sensor:
+    """
+    базовий клас сенсорів
+    """
     SENSOR_TYPE: SensorType | None = None
     def __init__(self, thing_id: UUID, metric: str):
         self.thing_id = thing_id
@@ -41,9 +52,10 @@ class Sensor:
         self.sensor_type = self.SENSOR_TYPE
 
     def generate_observation(self) -> Observation:
+        """
+        генерує новий запис спостереження від сенсора
+        """
         event_time = datetime.now(timezone.utc)
-
-        ingestion_time = datetime.now(timezone.utc)
 
         self.seq += 1
         value = self._get_value()
@@ -57,6 +69,8 @@ class Sensor:
             event_time=event_time,
             value=value,
         )
-
+    """
+    отримує поточне значення від сенсора
+    """
     def _get_value(self):
         raise NotImplementedError

@@ -6,7 +6,9 @@ from influxdb_client import Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 import pickle
 import os
-
+from river import anomaly
+from river import preprocessing
+from river import compose
 from river import anomaly
 from river.drift import ADWIN
 
@@ -14,8 +16,8 @@ from config import env
 
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
-PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data_topic1")
-KAFKA_GROUP_ID = env("KAFKA_GROUP_ID_ANOMALY", "anomaly_detector_topic")
+PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data_topic2")
+KAFKA_GROUP_ID = env("KAFKA_GROUP_ID_ANOMALY", "anomaly_detector_topic333")
 KAFKA_OFFSET_RESET = env("KAFKA_OFFSET_RESET", "latest")
 
 INFLUX_URL = env("INFLUX_URL", "http://localhost:8086")
@@ -26,10 +28,13 @@ INFLUX_TOKEN = env("INFLUX_TOKEN")
 INFLUX_MEASUREMENT = "anomalies"
 DRIFT_MEASUREMENT = "concept_drift"
 
-MODEL_STATE_FILE = "anomaly_models.pkl"
+MODEL_STATE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "anomaly_models")
+if not os.path.exists(MODEL_STATE_DIR):
+    os.makedirs(MODEL_STATE_DIR)
+dirty_models = set()
 
 SAVE_EVERY = 2000
-THRESHOLD = 0.9
+THRESHOLD = 0.6
 MIN_SAMPLES_FOR_ANOMALY = 10
 MIN_SAMPLES_FOR_DRIFT = 10
 DRIFT_COOLDOWN_WINDOWS = 3
@@ -38,13 +43,6 @@ ADWIN_DELTA = 0.002
 ADWIN_CLOCK = 8
 ADWIN_GRACE_PERIOD = 5
 ADWIN_MIN_WINDOW_LENGTH = 10
-
-
-class AdaptiveBounds:
-    def __init__(self, *args, **kwargs):
-        self.mean = None
-        self.var = None
-        self.count = 0
 
 
 consumer = KafkaConsumer(
@@ -64,12 +62,14 @@ write_api = client.write_api(write_options=SYNCHRONOUS)
 
 
 def create_model():
-    return anomaly.HalfSpaceTrees(
-        n_trees=25,
-        height=8,
-        window_size=50,
-        seed=42
-    )
+    return compose.Pipeline(
+        preprocessing.StandardScaler(),
+        anomaly.HalfSpaceTrees(
+            n_trees=50,
+            height=10,
+            window_size=50,
+            seed=42
+        ))
 
 
 def create_drift_detector():
@@ -95,11 +95,48 @@ def ms_to_datetime(ms):
     return datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc)
 
 
+def model_file_path(datastream_id):
+    safe_id = datastream_id.replace("/", "_").replace(":", "_")
+    return os.path.join(MODEL_STATE_DIR, f"{safe_id}.pkl")
+
+
+def load_model_entry(datastream_id):
+    path = model_file_path(datastream_id)
+
+    if not os.path.exists(path):
+        return create_entry()
+
+    try:
+        with open(path, "rb") as f:
+            entry = pickle.load(f)
+        repaired = repair_loaded_models({datastream_id: entry})
+        return repaired.get(datastream_id, create_entry())
+    except Exception as e:
+        print(f"MODEL LOAD ERROR | datastream_id={datastream_id} | error={e}")
+        return create_entry()
+
+
 def save_ml_models():
-    with open(MODEL_STATE_FILE, "wb") as f:
-        pickle.dump(ml_models, f)
+    for datastream_id in list(dirty_models):
+        path = model_file_path(datastream_id)
+        temp_path = path + ".tmp"
 
+        try:
+            with open(temp_path, "wb") as f:
+                pickle.dump(ml_models[datastream_id], f)
+                f.flush()
+                os.fsync(f.fileno())
 
+            os.replace(temp_path, path)
+            dirty_models.discard(datastream_id)
+
+        except Exception as e:
+            print(f"MODEL SAVE ERROR | datastream_id={datastream_id} | error={e}")
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
 progress = {"processed_messages": 0}
 
 
@@ -118,7 +155,7 @@ def write_point(point, error_text):
 
 def ensure_model(datastream_id):
     if datastream_id not in ml_models:
-        ml_models[datastream_id] = create_entry()
+        ml_models[datastream_id] = load_model_entry(datastream_id)
 
 
 def repair_loaded_models(models):
@@ -147,17 +184,7 @@ def repair_loaded_models(models):
     return models
 
 
-if os.path.exists(MODEL_STATE_FILE):
-    try:
-        with open(MODEL_STATE_FILE, "rb") as f:
-            ml_models = pickle.load(f)
-        ml_models = repair_loaded_models(ml_models)
-    except Exception as e:
-        print("PICKLE LOAD ERROR:", e)
-        ml_models = {}
-else:
-    ml_models = {}
-
+ml_models = {}
 
 print("Модуль виявлення аномалій запущено.")
 
@@ -186,7 +213,6 @@ try:
             window_end = int(data["window_end"])
         except Exception:
             continue
-
         event_dt = ms_to_datetime(window_end)
         time_of_event = event_dt.hour
         day_of_week = event_dt.weekday()
@@ -263,14 +289,23 @@ try:
 
             features = {
                 "average": average,
+                "min_value": min_value,
+                "max_value": max_value,
                 "spread": spread,
                 "time": time_of_event,
                 "day_of_week": day_of_week
             }
 
             anomaly_score = ml_models[datastream_id]["model"].score_one(features)
+            print(
+                f"SCORE | datastream_id={datastream_id} | sensor_type={sensor_type} | "
+                f"metric={metric} | score={anomaly_score:.3f} | "
+                f"samples_before={ml_models[datastream_id]['count']} | "
+                f"reset_count={ml_models[datastream_id]['reset_count']}"
+            )
             ml_models[datastream_id]["model"].learn_one(features)
             ml_models[datastream_id]["count"] += 1
+            dirty_models.add(datastream_id)
             register_progress()
 
             if ml_models[datastream_id]["cooldown"] > 0:
@@ -302,6 +337,7 @@ try:
 
                     ml_models[datastream_id] = create_entry(reset_count=reset_count)
                     ml_models[datastream_id]["cooldown"] = DRIFT_COOLDOWN_WINDOWS
+                    dirty_models.add(datastream_id)
                     save_ml_models()
 
             if anomaly_score > THRESHOLD and ml_models[datastream_id]["count"] >= MIN_SAMPLES_FOR_ANOMALY:
@@ -324,20 +360,37 @@ try:
         elif sensor_type == "counter":
             try:
                 delta = float(data["delta"])
+                first_value = float(data["first_value"])
+                window_start = int(data["window_start"])
+                window_end = int(data["window_end"])
             except (KeyError, TypeError, ValueError):
                 continue
+
+            window_duration_sec = max((window_end - window_start) / 1000.0, 1.0)
+            abs_delta = abs(delta)
+            rate = delta / window_duration_sec
 
             ensure_model(datastream_id)
 
             features = {
+                "first_value": first_value,
                 "delta": delta,
+                "abs_delta": abs_delta,
+                "rate": rate,
                 "time": time_of_event,
                 "day_of_week": day_of_week
             }
 
             anomaly_score = ml_models[datastream_id]["model"].score_one(features)
+            print(
+                f"SCORE | datastream_id={datastream_id} | sensor_type={sensor_type} | "
+                f"metric={metric} | score={anomaly_score:.3f} | "
+                f"samples_before={ml_models[datastream_id]['count']} | "
+                f"reset_count={ml_models[datastream_id]['reset_count']}"
+            )
             ml_models[datastream_id]["model"].learn_one(features)
             ml_models[datastream_id]["count"] += 1
+            dirty_models.add(datastream_id)
             register_progress()
 
             if ml_models[datastream_id]["cooldown"] > 0:
@@ -369,6 +422,7 @@ try:
 
                     ml_models[datastream_id] = create_entry(reset_count=reset_count)
                     ml_models[datastream_id]["cooldown"] = DRIFT_COOLDOWN_WINDOWS
+                    dirty_models.add(datastream_id)
                     save_ml_models()
 
             if anomaly_score > THRESHOLD and ml_models[datastream_id]["count"] >= MIN_SAMPLES_FOR_ANOMALY:
@@ -388,177 +442,313 @@ try:
                 )
                 write_point(p, "Помилка запису в Influx")
 
-        elif sensor_type == "state":
+
+
+        elif data["sensor_type"] == "state":
+
             try:
+
                 distinct_counts = int(data["distinct_counts"])
-                on_count = int(data.get("on_count", 0))
-                total_count = int(data["count"])
+
             except (KeyError, TypeError, ValueError):
-                continue
 
-            if total_count <= 0:
                 continue
-
-            on_ratio = on_count / total_count
 
             ensure_model(datastream_id)
 
-            features = {
-                "distinct_counts": distinct_counts,
-                "on_ratio": on_ratio,
-                "time": time_of_event,
-                "day_of_week": day_of_week
-            }
+            features = {"distinct_counts": distinct_counts, "time": time_of_event, "day of week": day_of_week}
 
-            anomaly_score = ml_models[datastream_id]["model"].score_one(features)
-            ml_models[datastream_id]["model"].learn_one(features)
-            ml_models[datastream_id]["count"] += 1
+            anomaly_score = ml_models[datastream_id]['model'].score_one(features)
+
+            ml_models[datastream_id]['model'].learn_one(features)
+
+            ml_models[datastream_id]['count'] += 1
+
+            dirty_models.add(datastream_id)
+
             register_progress()
 
             if ml_models[datastream_id]["cooldown"] > 0:
+
                 ml_models[datastream_id]["cooldown"] -= 1
+
             elif ml_models[datastream_id]["count"] >= MIN_SAMPLES_FOR_DRIFT:
+
                 ml_models[datastream_id]["drift_detector"].update(anomaly_score)
 
                 if ml_models[datastream_id]["drift_detector"].drift_detected:
                     ml_models[datastream_id]["reset_count"] += 1
+
                     reset_count = ml_models[datastream_id]["reset_count"]
 
                     print(
+
                         f"ВИЯВЛЕНО CONCEPT DRIFT! Сенсор {datastream_id}({metric}). "
+
                         f"Score: {anomaly_score:.3f}. Модель буде скинута."
+
                     )
 
                     p = (
+
                         Point(DRIFT_MEASUREMENT)
+
                         .tag("sensor_type", "state")
+
                         .tag("metric", metric)
+
                         .tag("datastream_id", datastream_id)
+
                         .tag("detector", "ADWIN")
+
                         .time(ms_to_datetime(window_end))
+
                         .field("drift_value", float(anomaly_score))
+
                         .field("count_before_reset", ml_models[datastream_id]["count"])
+
                         .field("reset_count", reset_count)
+
                     )
+
                     write_point(p, "Помилка запису drift в Influx")
 
                     ml_models[datastream_id] = create_entry(reset_count=reset_count)
+
                     ml_models[datastream_id]["cooldown"] = DRIFT_COOLDOWN_WINDOWS
+
+                    dirty_models.add(datastream_id)
+
                     save_ml_models()
 
             if anomaly_score > THRESHOLD and ml_models[datastream_id]["count"] >= MIN_SAMPLES_FOR_ANOMALY:
                 print(
+
                     f"ВИЯВЛЕНО АНОМАЛІЮ! Сенсор {datastream_id}({metric}). "
-                    f"distinct_counts={distinct_counts}, on_ratio={on_ratio:.2f}, Score: {anomaly_score:.3f}"
+
+                    f"distinct_counts={distinct_counts}, Score: {anomaly_score:.3f}"
+
                 )
-                p = (
-                    Point(INFLUX_MEASUREMENT)
-                    .tag("sensor_type", "state")
-                    .tag("metric", metric)
-                    .tag("datastream_id", datastream_id)
-                    .tag("anomaly_type", "statistical")
-                    .time(ms_to_datetime(window_end))
-                    .field("distinct_counts", int(distinct_counts))
-                    .field("on_ratio", float(on_ratio))
-                    .field("anomaly_score", float(anomaly_score))
-                )
+
+                p = (Point(INFLUX_MEASUREMENT)
+
+                     .tag("sensor_type", "state")
+
+                     .tag("metric", metric)
+
+                     .tag("datastream_id", datastream_id)
+
+                     .time(ms_to_datetime(window_end))
+
+                     .field("distinct_counts", distinct_counts)
+
+                     .field("anomaly_score", anomaly_score))
+
                 write_point(p, "Помилка запису в Influx")
 
-        elif sensor_type == "alarm":
+
+
+        elif data["sensor_type"] == "alarm":
+
             try:
+
                 true_ratio = float(data["true_ratio"])
+
                 true_count = int(data["true_count"])
+
+                anomaly_score = 0.0
+
             except (KeyError, TypeError, ValueError):
+
                 continue
 
             ensure_model(datastream_id)
 
-            if metric == "smoke":
-                if true_count == 0:
-                    continue
+            if true_count == 0:
 
-                anomaly_score = 1.0
-                ml_models[datastream_id]["count"] += 1
-                register_progress()
+                continue
 
-                print(
-                    f"КРИТИЧНА ПОДІЯ! Сенсор {datastream_id}({metric}). "
-                    f"Smoke detected, Score: {anomaly_score:.3f}"
-                )
 
-                p = (
-                    Point(INFLUX_MEASUREMENT)
-                    .tag("sensor_type", "alarm")
-                    .tag("metric", metric)
-                    .tag("datastream_id", datastream_id)
-                    .tag("anomaly_type", "critical_event")
-                    .time(ms_to_datetime(window_end))
-                    .field("true_count", int(true_count))
-                    .field("anomaly_score", float(anomaly_score))
-                )
-                write_point(p, "Помилка запису в Influx")
+            else:
 
-            elif metric == "move":
-                features = {
-                    "activity_level": true_ratio,
-                    "true_count": true_count,
-                    "time": time_of_event,
-                    "day_of_week": day_of_week
-                }
+                anomaly_score = 0.0
 
-                anomaly_score = ml_models[datastream_id]["model"].score_one(features)
-                ml_models[datastream_id]["model"].learn_one(features)
-                ml_models[datastream_id]["count"] += 1
-                register_progress()
+                if metric == "smoke":
 
-                if ml_models[datastream_id]["cooldown"] > 0:
-                    ml_models[datastream_id]["cooldown"] -= 1
-                elif ml_models[datastream_id]["count"] >= MIN_SAMPLES_FOR_DRIFT:
-                    ml_models[datastream_id]["drift_detector"].update(anomaly_score)
+                    anomaly_score = 1.0
 
-                    if ml_models[datastream_id]["drift_detector"].drift_detected:
-                        ml_models[datastream_id]["reset_count"] += 1
-                        reset_count = ml_models[datastream_id]["reset_count"]
+                    ml_models[datastream_id]['count'] += 1
 
-                        print(
-                            f"ВИЯВЛЕНО CONCEPT DRIFT! Сенсор {datastream_id}({metric}). "
-                            f"Score: {anomaly_score:.3f}. Модель буде скинута."
-                        )
+                    dirty_models.add(datastream_id)
 
-                        p = (
-                            Point(DRIFT_MEASUREMENT)
-                            .tag("sensor_type", "alarm")
-                            .tag("metric", metric)
-                            .tag("datastream_id", datastream_id)
-                            .tag("detector", "ADWIN")
-                            .time(ms_to_datetime(window_end))
-                            .field("drift_value", float(anomaly_score))
-                            .field("count_before_reset", ml_models[datastream_id]["count"])
-                            .field("reset_count", reset_count)
-                        )
-                        write_point(p, "Помилка запису drift в Influx")
+                    register_progress()
 
-                        ml_models[datastream_id] = create_entry(reset_count=reset_count)
-                        ml_models[datastream_id]["cooldown"] = DRIFT_COOLDOWN_WINDOWS
-                        save_ml_models()
-
-                if anomaly_score > THRESHOLD and ml_models[datastream_id]["count"] >= MIN_SAMPLES_FOR_ANOMALY:
                     print(
-                        f"ВИЯВЛЕНО АНОМАЛІЮ! Сенсор {datastream_id}({metric}). "
-                        f"true_count={true_count}, Score: {anomaly_score:.3f}"
+
+                        f"SCORE | datastream_id={datastream_id} | sensor_type={sensor_type} | "
+
+                        f"metric={metric} | score={anomaly_score:.3f} | "
+
+                        f"samples_before={ml_models[datastream_id]['count'] - 1} | "
+
+                        f"reset_count={ml_models[datastream_id]['reset_count']}"
+
                     )
-                    p = (
-                        Point(INFLUX_MEASUREMENT)
-                        .tag("sensor_type", "alarm")
-                        .tag("metric", metric)
-                        .tag("datastream_id", datastream_id)
-                        .tag("anomaly_type", "statistical")
-                        .time(ms_to_datetime(window_end))
-                        .field("true_count", int(true_count))
-                        .field("true_ratio", float(true_ratio))
-                        .field("anomaly_score", float(anomaly_score))
+
+
+                elif metric == "move":
+
+                    features = {
+
+                        "activity_level": true_ratio,
+
+                        "time": time_of_event,
+
+                        "day of week": day_of_week
+
+                    }
+
+                    anomaly_score = ml_models[datastream_id]['model'].score_one(features)
+
+                    print(
+
+                        f"SCORE | datastream_id={datastream_id} | sensor_type={sensor_type} | "
+
+                        f"metric={metric} | score={anomaly_score:.3f} | "
+
+                        f"samples_before={ml_models[datastream_id]['count']} | "
+
+                        f"reset_count={ml_models[datastream_id]['reset_count']}"
+
                     )
-                    write_point(p, "Помилка запису в Influx")
+
+                    ml_models[datastream_id]['model'].learn_one(features)
+
+                    ml_models[datastream_id]['count'] += 1
+
+                    dirty_models.add(datastream_id)
+
+                    register_progress()
+
+                    if ml_models[datastream_id]['cooldown'] > 0:
+
+                        ml_models[datastream_id]['cooldown'] -= 1
+
+
+                    elif ml_models[datastream_id]['count'] >= MIN_SAMPLES_FOR_DRIFT:
+
+                        ml_models[datastream_id]['drift_detector'].update(anomaly_score)
+
+                        if ml_models[datastream_id]['drift_detector'].drift_detected:
+
+                            ml_models[datastream_id]['reset_count'] += 1
+
+                            reset_count = ml_models[datastream_id]['reset_count']
+
+                            print(
+
+                                f"ВИЯВЛЕНО CONCEPT DRIFT! Сенсор {datastream_id}({metric}). "
+
+                                f"Score: {anomaly_score:.3f}. Модель буде скинута."
+
+                            )
+
+                            p = (Point(DRIFT_MEASUREMENT)
+
+                                 .tag("sensor_type", "alarm")
+
+                                 .tag("metric", metric)
+
+                                 .tag("datastream_id", datastream_id)
+
+                                 .tag("detector", "ADWIN")
+
+                                 .time(ms_to_datetime(window_end))
+
+                                 .field("drift_value", anomaly_score)
+
+                                 .field("count_before_reset", ml_models[datastream_id]['count'])
+
+                                 .field("reset_count", reset_count))
+
+                            try:
+
+                                write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=p)
+
+                            except Exception as e:
+
+                                print(f"Помилка запису drift в Influx: {e}")
+
+                            ml_models[datastream_id] = create_entry(reset_count=reset_count)
+
+                            ml_models[datastream_id]['cooldown'] = DRIFT_COOLDOWN_WINDOWS
+
+                            dirty_models.add(datastream_id)
+
+                            save_ml_models()
+
+                if metric == "smoke":
+
+                    print(
+
+                        f"КРИТИЧНА ПОДІЯ! Сенсор {datastream_id}({metric}). Smoke detected, Score: {anomaly_score:.3f}"
+
+                    )
+
+                    p = (Point(INFLUX_MEASUREMENT)
+
+                         .tag("sensor_type", "alarm")
+
+                         .tag("metric", metric)
+
+                         .tag("datastream_id", datastream_id)
+
+                         .time(ms_to_datetime(window_end))
+
+                         .field("true_count", true_count)
+
+                         .field("anomaly_score", anomaly_score))
+
+                    try:
+
+                        write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=p)
+
+                    except Exception as e:
+
+                        print(f"Помилка запису в Influx: {e}")
+
+
+                elif anomaly_score > THRESHOLD and ml_models[datastream_id]['count'] >= MIN_SAMPLES_FOR_ANOMALY:
+
+                    print(
+
+                        f"ВИЯВЛЕНО АНОМАЛІЮ! Сенсор {datastream_id}({metric}). Значення {true_count:.2f}, Score: {anomaly_score:.3f}"
+
+                    )
+
+                    p = (Point(INFLUX_MEASUREMENT)
+
+                         .tag("sensor_type", "alarm")
+
+                         .tag("metric", metric)
+
+                         .tag("datastream_id", datastream_id)
+
+                         .time(ms_to_datetime(window_end))
+
+                         .field("true_count", true_count)
+
+                         .field("anomaly_score", anomaly_score))
+
+                    try:
+
+                        write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=p)
+
+                    except Exception as e:
+
+                        print(f"Помилка запису в Influx: {e}")
+
+
 
 finally:
     save_ml_models()

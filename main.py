@@ -74,32 +74,31 @@ def run_simulation():
                 cycle_time = personal_time % ANOMALY_CYCLE_SEC
                 metric = data["metric"]
 
-                if random.random() < 0.00001:
+                if random.random() < 0.0001:
                     if metric in ["temperature", "voltage", "co2", "fridge"]:
                         data["value"] = random.choice([-999.0, 9999.0])
                     elif metric in ["humidity"]:
                         data["value"] = 500.0
                 else:
-                    if 240 < cycle_time < 250:
+                    if 85 < cycle_time < 100:
                         if metric == "temperature":
-                            data["value"] = random.uniform(60.0, 85.0)
+                            data["value"] = random.uniform(70.0, 95.0)
+                        elif metric == "humidity":
+                            data["value"] = random.uniform(95.0, 100.0)
                         elif metric == "co2":
-                            data["value"] = random.uniform(1500.0, 3500.0)
+                            data["value"] = random.uniform(2500.0, 5000.0)
                         elif metric == "fridge":
-                            data["value"] = random.uniform(15.0, 22.0)
+                            data["value"] = random.uniform(18.0, 25.0)
                         elif metric == "voltage":
-                            data["value"] = random.uniform(280.0, 310.0)
+                            data["value"] = random.uniform(290.0, 320.0)
                         elif metric == "water":
-                            data["value"] += random.uniform(100.0, 300.0)
-                        elif metric == "door":
-                            data["value"] = "ON" if int(personal_time * 5) % 2 == 0 else "OFF"
-                        elif metric == "move":
-                            data["value"] = True
+                            data["value"] += random.uniform(150.0, 400.0)
+                        elif metric == "electricity":
+                            data["value"] += random.uniform(200.0, 600.0)
 
                 data["thing_id"] = str(data["thing_id"])
                 data["datastream_id"] = str(data["datastream_id"])
                 data["event_time"] = data["event_time"].isoformat()
-                data["ingestion_time"] = data["ingestion_time"].isoformat()
 
                 is_dlq = False
                 bad_bytes_payload = None

@@ -40,7 +40,6 @@ class Device:
         observations: list[Observation] = []
         for sensor in self.sensors:
             observation = sensor.generate_observation()
-            observation.ingestion_time = publishing_time
             if self.time_skew != 0:
                 observation.event_time += timedelta(milliseconds=self.time_skew)
             if random.random() < self.jitter_prob:
