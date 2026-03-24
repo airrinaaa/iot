@@ -113,7 +113,7 @@ class Device:
             initial_fridge = random.uniform(3, 6)
             fridge_sensor = AnalogSensor(new_id, "fridge", 1, 8, initial_fridge, 0.03, 0.12)
             oven_sensor = StateSensor(new_id, "oven", 0, 0.0007)
-            #smoke_sensor = AlarmSensor(new_id, "smoke", 0.0, 6000)
+            #smoke_sensor = AlarmSensor(new_id, "smoke", 0.00000000000000001, 6000)
             new_device.sensors.append(fridge_sensor)
             new_device.sensors.append(oven_sensor)
             #new_device.sensors.append(smoke_sensor)

@@ -16,7 +16,7 @@ from config import env
 
 KAFKA_BOOTSTRAP = env("KAFKA_BOOTSTRAP", "localhost:9092")
 PROCESSED_TOPIC = env("PROCESSED_TOPIC", "processed_data_topic2")
-KAFKA_GROUP_ID = env("KAFKA_GROUP_ID_ANOMALY", "anomaly_detector_topic333")
+KAFKA_GROUP_ID = env("KAFKA_GROUP_ID_ANOMALY", "anomaly_detector_topic3")
 KAFKA_OFFSET_RESET = env("KAFKA_OFFSET_RESET", "latest")
 
 INFLUX_URL = env("INFLUX_URL", "http://localhost:8086")
@@ -33,9 +33,9 @@ if not os.path.exists(MODEL_STATE_DIR):
 dirty_models = set()
 
 SAVE_EVERY = 2000
-THRESHOLD = 0.9
+THRESHOLD = 0.85
 MIN_SAMPLES_FOR_ANOMALY = 100
-MIN_SAMPLES_FOR_DRIFT = 100
+MIN_SAMPLES_FOR_DRIFT = 30
 DRIFT_COOLDOWN_WINDOWS = 20
 
 ADWIN_DELTA = 0.001
@@ -305,12 +305,14 @@ try:
             }
 
             anomaly_score = ml_models[datastream_id]["model"].score_one(features)
+            """
             print(
                 f"SCORE | datastream_id={datastream_id} | sensor_type={sensor_type} | "
                 f"metric={metric} | score={anomaly_score:.3f} | "
                 f"samples_before={ml_models[datastream_id]['count']} | "
                 f"reset_count={ml_models[datastream_id]['reset_count']}"
             )
+            """
             ml_models[datastream_id]["model"].learn_one(features)
             ml_models[datastream_id]["count"] += 1
             dirty_models.add(datastream_id)
@@ -368,34 +370,32 @@ try:
         elif sensor_type == "counter":
             try:
                 delta = float(data["delta"])
-                first_value = float(data["first_value"])
                 window_start = int(data["window_start"])
                 window_end = int(data["window_end"])
             except (KeyError, TypeError, ValueError):
                 continue
 
             window_duration_sec = max((window_end - window_start) / 1000.0, 1.0)
-            abs_delta = abs(delta)
             rate = delta / window_duration_sec
 
             ensure_model(datastream_id)
 
             features = {
-                "first_value": first_value,
                 "delta": delta,
-                "abs_delta": abs_delta,
                 "rate": rate,
                 "time": time_of_event,
                 "day_of_week": day_of_week
             }
 
             anomaly_score = ml_models[datastream_id]["model"].score_one(features)
+            """
             print(
                 f"SCORE | datastream_id={datastream_id} | sensor_type={sensor_type} | "
                 f"metric={metric} | score={anomaly_score:.3f} | "
                 f"samples_before={ml_models[datastream_id]['count']} | "
                 f"reset_count={ml_models[datastream_id]['reset_count']}"
             )
+            """
             ml_models[datastream_id]["model"].learn_one(features)
             ml_models[datastream_id]["count"] += 1
             dirty_models.add(datastream_id)
@@ -518,17 +518,19 @@ try:
                 continue
             ensure_model(datastream_id)
             anomaly_score = 0.0
-            if metric == "smoke":
+            if metric == "smoke" and true_count > 0:
                 anomaly_score = 1.0
                 ml_models[datastream_id]['count'] += 1
                 dirty_models.add(datastream_id)
                 register_progress()
+                """
                 print(
                     f"SCORE | datastream_id={datastream_id} | sensor_type={sensor_type} | "
                     f"metric={metric} | score={anomaly_score:.3f} | "
                     f"samples_before={ml_models[datastream_id]['count'] - 1} | "
                     f"reset_count={ml_models[datastream_id]['reset_count']}"
                 )
+                """
                 print(
                     f"КРИТИЧНА ПОДІЯ! Сенсор {datastream_id}({metric}). Smoke detected, Score: {anomaly_score:.3f}"
                 )
@@ -551,12 +553,14 @@ try:
                     "day_of_week": day_of_week
                 }
                 anomaly_score = ml_models[datastream_id]['model'].score_one(features)
+                """
                 print(
                     f"SCORE | datastream_id={datastream_id} | sensor_type={sensor_type} | "
                     f"metric={metric} | score={anomaly_score:.3f} | "
                     f"samples_before={ml_models[datastream_id]['count']} | "
                     f"reset_count={ml_models[datastream_id]['reset_count']}"
                 )
+                """
 
                 ml_models[datastream_id]['model'].learn_one(features)
                 ml_models[datastream_id]['count'] += 1

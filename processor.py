@@ -228,7 +228,7 @@ late_firing_stream = metric_ds_with_windowing \
     .filter(lambda record: record.get("is_late_firing")) \
     .map(
         lambda record: (
-            f"[LATE FIRING] key={str(record['datastream_id'])}... "
+            f"[LATE FIRING] key={str(record['datastream_id'])} "
             f"metric={record['metric']} "
             f"window={record['window']} "
             f"fire_index={record['fire_index']}"
