@@ -15,28 +15,50 @@ from AlarmSensor import AlarmSensor
 
 
 class DeviceType(Enum):
+    """
+    типи пристроїв
+    """
     CLIMATE = "climate"
     SECURITY = "security"
     UTILITY = "utility"
     KITCHEN = "kitchen"
 
 
-@dataclass()
+@dataclass
 class Device:
+    """
+    клас пристрою, який містить певний набір сенсорів
+    """
     thing_id: UUID
     device_type: DeviceType
-    time_skew: int = 0
-    jitter_prob: float = 0.0001
-    jitter_max: int = 900
-    shuffle_prob: float = 0.001
+    time_skew: int = 0 #зсув часу пристрою
+    jitter_prob: float = 0.0001 #ймовірність штучної затримки події
+    jitter_max: int = 900 #максимальна величина штучної затримки
+    shuffle_prob: float = 0.001 #ймовірність перемішування спостережень
     sensors: list[Sensor] = field(default_factory=list)
+
+
+    def __post_init__(self):
+        """
+        перевірка параметрів пристрою
+        """
+        if self.jitter_prob < 0 or self.jitter_prob > 1:
+            raise ValueError("jitter_prob must be between 0 and 1")
+        if self.shuffle_prob < 0 or self.shuffle_prob > 1:
+            raise ValueError("shuffle_prob must be between 0 and 1")
 
     @staticmethod
     def build_stable_thing_id(device_type: DeviceType, device_index: int) -> UUID:
+        """
+        створює унікальний ідентифікатор пристрою на основі його типу та номера
+        """
         return uuid5(NAMESPACE_DNS, f"iot-simulator:{device_type.value}:{device_index}")
 
     def read_all(self) -> list[Observation]:
-        publishing_time = datetime.now(timezone.utc)
+        """
+        зчитує значення з усіх сенсорів пристрою
+        :return:список спостережень
+        """
         observations: list[Observation] = []
         for sensor in self.sensors:
             observation = sensor.generate_observation()
@@ -51,6 +73,12 @@ class Device:
 
     @staticmethod
     def create_by_type(deviceType: DeviceType, device_index: int) -> Device:
+        """
+        створення пристрою певного типу з стандартним набором сенсорів для цього типу
+        :param deviceType:
+        :param device_index:
+        :return:створений пристрій
+        """
         new_id = Device.build_stable_thing_id(deviceType, device_index)
         time_skew = random.randint(-300, 300)
         new_device = Device(new_id, deviceType, time_skew=time_skew)

@@ -12,8 +12,8 @@ from uuid import UUID, uuid5, NAMESPACE_URL
 class Observation:
     """
     клас для збереження одного спостереження від сенсора
-    містить унікальні ідентифікатори сенсора, потоку,
-    вимірювану метрику, тип сенсора, номер повідомлення, час подій, та значення
+    містить унікальні ідентифікатори пристрою, потоку,
+    вимірювану метрику, тип сенсора, номер повідомлення, час події, та значення
     """
     thing_id: UUID
     datastream_id: UUID
@@ -43,6 +43,8 @@ class Sensor:
     SENSOR_TYPE: SensorType | None = None
     def __init__(self, thing_id: UUID, metric: str):
         self.thing_id = thing_id
+        if not metric.strip():
+            raise ValueError("metric cannot be empty")
         self.metric = metric
         self.datastream_id = uuid5(NAMESPACE_URL, f"{thing_id}:{metric}")
         self.seq = 0
@@ -69,8 +71,8 @@ class Sensor:
             event_time=event_time,
             value=value,
         )
-    """
-    отримує поточне значення від сенсора
-    """
     def _get_value(self):
+        """
+        отримання поточного значення від сенсора
+        """
         raise NotImplementedError

@@ -9,7 +9,7 @@
     { "name": "sensor_type", "type": "string" },
     {"name": "seq", "type": "int"},
     {"name": "event_time", "type": "string"},
-    {"name": "value", "type": ["double", "string", "int", "boolean"]},
+    {"name": "value", "type": ["double", "string","boolean", "int"]},
     {"name": "publish_time", "type": "string"}
   ]
 }

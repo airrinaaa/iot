@@ -9,7 +9,11 @@ class AlarmSensor(Sensor):
     SENSOR_TYPE = "alarm"
     def __init__(self, thing_id:UUID, metric:str, trigger_prob: float, cooldown:int):
         super().__init__(thing_id, metric)
+        if trigger_prob < 0 or trigger_prob > 1:
+            raise ValueError("trigger_prob must be between 0 and 1")
         self.trigger_prob = trigger_prob #ймовірність спрацювання тривоги
+        if cooldown < 0:
+            raise ValueError("cooldown must be non-negative")
         self.cooldown = cooldown #кількість наступних викликів під час яких тривога не може знову спрацювати
         self.timer = 0
 

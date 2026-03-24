@@ -71,15 +71,21 @@ source = KafkaSource.builder() \
 ds = flink_env.from_source(source, WatermarkStrategy.no_watermarks(), "Kafka bridge")
 
 
-def is_iso_datetime(s: str) -> bool:
+def is_iso_datetime(date: str) -> bool:
+    """
+    перевіряє дату на коректність відповідно до ISO
+    """
     try:
-        datetime.fromisoformat(s)
+        datetime.fromisoformat(date)
         return True
     except Exception:
         return False
 
 
 def validate_record(record: dict) -> tuple[bool, str]:
+    """
+    перевірка декодованого запису на коректність
+    """
     if "thing_id" not in record or not isinstance(record["thing_id"], str) or not record["thing_id"].strip():
         return False, "invalid_thing_id"
 
@@ -92,7 +98,7 @@ def validate_record(record: dict) -> tuple[bool, str]:
     if "sensor_type" not in record or not isinstance(record["sensor_type"], str) or record["sensor_type"] not in VALID_SENSOR_TYPES:
         return False, "invalid_sensor_type"
 
-    if "seq" not in record or not isinstance(record["seq"], int):
+    if "seq" not in record or not isinstance(record["seq"], int) or isinstance(record["seq"], bool):
         return False, "invalid_seq"
 
     if "event_time" not in record or not isinstance(record["event_time"], str) or not record["event_time"].strip() or not is_iso_datetime(record["event_time"]):
@@ -102,10 +108,30 @@ def validate_record(record: dict) -> tuple[bool, str]:
         return False, "invalid_value"
     if "publish_time" not in record or not isinstance(record["publish_time"], str) or not record["publish_time"].strip() or not is_iso_datetime(record["publish_time"]):
         return False, "invalid_publish_time"
+    value = record["value"]
+    sensor_type = record["sensor_type"]
+    if sensor_type == "analog":
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return False, "invalid_analog_value"
+    elif sensor_type == "counter":
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return False, "invalid_counter_value"
+    elif sensor_type == "state":
+        if value not in ("ON", "OFF"):
+            return False, "invalid_state_value"
+    elif sensor_type == "alarm":
+        if not isinstance(value, bool):
+            return False, "invalid_alarm_value"
     return True, "ok"
 
 
 def safe_decode_validate(avro_bytes: bytes, schema) -> tuple[str, dict]:
+    """
+    декодування та перевірка Avro-повідомлення
+    :param avro_bytes:
+    :param schema:
+    :return:
+    """
     try:
         record = schemaless_reader(io.BytesIO(avro_bytes), schema)
     except Exception as e:
@@ -119,7 +145,7 @@ def safe_decode_validate(avro_bytes: bytes, schema) -> tuple[str, dict]:
     ok, reason = validate_record(record)
     if ok:
         return ("ok", record)
-
+    #у разі невалідності формується запис до dlq
     return ("dlq", {
         "error": reason,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -130,8 +156,7 @@ def safe_decode_validate(avro_bytes: bytes, schema) -> tuple[str, dict]:
         "seq": record.get("seq"),
     })
 
-
-with open(SCHEMA_PATH, "rb") as f:
+with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
     raw_schema = json.load(f)
     schema = parse_schema(raw_schema)
 

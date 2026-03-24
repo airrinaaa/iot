@@ -24,6 +24,13 @@ client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 
 
 def publish_avro(topic, data, schema):
+    """
+    серіалізація повідомлення в Avro і відправка до MQTT
+    :param topic:
+    :param data:
+    :param schema:
+    :return:
+    """
     data["publish_time"] = datetime.now(timezone.utc).isoformat()
 
     bytes_io = io.BytesIO()
@@ -34,6 +41,9 @@ def publish_avro(topic, data, schema):
 
 
 def run_simulation():
+    """
+    основний цикл симуляції (створення пристроїв, генерація спостережень і їх публікація до MQTT)
+    """
     client.connect(MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE)
     client.loop_start()
     with open(SCHEMA_PATH, "rb") as f:
@@ -46,16 +56,17 @@ def run_simulation():
         dev_type = types_of_devices[i % len(types_of_devices)]
         devices.append(Device.create_by_type(dev_type, i))
 
-    ANOMALY_CYCLE_SEC = 600
+    ANOMALY_CYCLE_SEC = 500
     device_phase_offset = {
         device.thing_id: random.uniform(0, ANOMALY_CYCLE_SEC)
         for device in devices
     }
 
     start_time = time.time()
+    #для запізнілих подій
     WITHIN_ALLOWED_DELAY_SEC = 8
     TOO_LATE_DELAY_SEC = 30
-    WITHIN_ALLOWED_DELAY_PROB = 0.00001
+    WITHIN_ALLOWED_DELAY_PROB = 0.0001
     TOO_LATE_DELAY_PROB = 0.00001
 
     delayed_buffer: deque = deque()
@@ -73,14 +84,18 @@ def run_simulation():
                 personal_time = elapsed_time + current_offset
                 cycle_time = personal_time % ANOMALY_CYCLE_SEC
                 metric = data["metric"]
+                topic = f"{MQTT_TOPIC_PREFIX}/{device.device_type.value}"
 
-                if random.random() < 0.0001:
+
+                #аномалії(неможливі значення)
+                if random.random() < 0.00001:
                     if metric in ["temperature", "voltage", "co2", "fridge"]:
                         data["value"] = random.choice([-999.0, 9999.0])
                     elif metric in ["humidity"]:
                         data["value"] = 500.0
                 else:
-                    if 85 < cycle_time < 100:
+                    #період аномалій у циклі
+                    if 85 < cycle_time < 90 and random.random() < 0.00001:
                         if metric == "temperature":
                             data["value"] = random.uniform(70.0, 95.0)
                         elif metric == "humidity":
@@ -95,18 +110,16 @@ def run_simulation():
                             data["value"] += random.uniform(150.0, 400.0)
                         elif metric == "electricity":
                             data["value"] += random.uniform(200.0, 600.0)
-
                 data["thing_id"] = str(data["thing_id"])
                 data["datastream_id"] = str(data["datastream_id"])
                 data["event_time"] = data["event_time"].isoformat()
 
                 is_dlq = False
                 bad_bytes_payload = None
-
+                #генерація невалідних повідомлень
                 if random.random() < 0.00001:
                     is_dlq = True
                     error_type = random.choice(["bad_metric", "bad_time", "empty_id", "bad_bytes"])
-
                     if error_type == "bad_metric":
                         data["metric"] = "   "
                     elif error_type == "bad_time":
@@ -115,13 +128,15 @@ def run_simulation():
                         data["datastream_id"] = "   "
                     elif error_type == "bad_bytes":
                         bad_bytes_payload = b"totally_invalid_avro_garbage_123456789"
+                    print(f"[INVALID MESSAGE] topic={topic} error_type={error_type}")
 
-                topic = f"{MQTT_TOPIC_PREFIX}/{device.device_type.value}"
 
                 if bad_bytes_payload is not None:
                     client.publish(topic, payload=bad_bytes_payload)
+                #генерація дуже запізнілих подій(поза межами дозволеної затримки)
                 elif not is_dlq and random.random() < TOO_LATE_DELAY_PROB:
                     too_late_buffer.append((time.time() + TOO_LATE_DELAY_SEC, topic, data.copy()))
+                #генерація запізнілих подій у межах допустимої затримки
                 elif not is_dlq and random.random() < WITHIN_ALLOWED_DELAY_PROB:
                     delayed_buffer.append((time.time() + WITHIN_ALLOWED_DELAY_SEC, topic, data.copy()))
                 else:

@@ -1,5 +1,5 @@
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 import pickle
 
@@ -32,6 +32,11 @@ METRIC_TYPE = {
 
 
 def type_by_value(data: dict) -> Type:
+    """
+    визначення типу сенсора за значенням (якщо тип сенсора і метрика відсутні)
+    :param data:
+    :return: Type
+    """
     value = data.get("value")
 
     if isinstance(value, str):
@@ -45,6 +50,11 @@ def type_by_value(data: dict) -> Type:
 
 
 def type_by_metric(data: dict) -> Type:
+    """
+    визначення типу сенсора за метрикою (якщо тип сенсора відсутній)
+    :param data:
+    :return: Type
+    """
     metric = data["metric"]
     if metric in METRIC_TYPE:
         return METRIC_TYPE[metric]
@@ -53,6 +63,11 @@ def type_by_metric(data: dict) -> Type:
 
 
 def type_by_sensor_type(data: dict) -> Type | None:
+    """
+    визначення типу сенсора
+    :param data:
+    :return: Type|None
+    """
     sensor_type = data.get("sensor_type")
 
     if sensor_type == "analog":
@@ -68,6 +83,11 @@ def type_by_sensor_type(data: dict) -> Type | None:
 
 
 def identify_type(data: dict) -> Type:
+    """
+    визначення типу сенсора (покроково за sensor_type, metric i value)
+    :param data:
+    :return:
+    """
     sensor_type = type_by_sensor_type(data)
     if sensor_type is not None:
         return sensor_type
@@ -110,6 +130,11 @@ class CollectAll(KeyedProcessFunction):
         return window_start, window_end
 
     def build_late_record(self, record: dict, arrival_time_ms: int) -> dict:
+        """
+        формування запис про подію, яка надійшла пізніше дозволеного часу
+        :param record:
+        :param arrival_time_ms:
+        """
         event_time_ms = int(datetime.fromisoformat(record["event_time"]).timestamp() * 1000)
         _, window_end_ms = self.get_window_bounds(event_time_ms)
         allowed_until_ms = window_end_ms + self.allowed_lateness_ms
@@ -126,6 +151,12 @@ class CollectAll(KeyedProcessFunction):
         }
 
     def create_bucket(self, value: dict, window_end_ms: int, cleanup_time_ms: int) -> dict:
+        """
+        створення нового bucket для вікна, ініціалізація полів агрегації
+        :param value:
+        :param window_end_ms:
+        :param cleanup_time_ms:
+        """
         sensor_type = identify_type(value)
 
         bucket = {
@@ -169,11 +200,17 @@ class CollectAll(KeyedProcessFunction):
         return bucket
 
     def update_bucket(self, bucket: dict, value: dict, event_time_ms: int, publish_time_ms: int):
+        """
+        оновлення агрегованих значень в bucket
+        :param bucket:
+        :param value:
+        :param event_time_ms:
+        :param publish_time_ms:
+        """
         bucket["count"] += 1
 
         if event_time_ms > bucket["max_event_time"]:
             bucket["max_event_time"] = event_time_ms
-
         if publish_time_ms > bucket["max_publish_time"]:
             bucket["max_publish_time"] = publish_time_ms
 
@@ -181,10 +218,8 @@ class CollectAll(KeyedProcessFunction):
 
         if sensor_type == "analog":
             current_value = float(value["value"])
-
             if bucket["min_value"] is None or current_value < bucket["min_value"]:
                 bucket["min_value"] = current_value
-
             if bucket["max_value"] is None or current_value > bucket["max_value"]:
                 bucket["max_value"] = current_value
 
@@ -196,52 +231,49 @@ class CollectAll(KeyedProcessFunction):
             if bucket["first_event_time"] is None or event_time_ms < bucket["first_event_time"]:
                 bucket["first_event_time"] = event_time_ms
                 bucket["first_value"] = current_value
-
             if bucket["last_event_time"] is None or event_time_ms >= bucket["last_event_time"]:
                 bucket["last_event_time"] = event_time_ms
                 bucket["last_value"] = current_value
 
         elif sensor_type == "state":
             current_value = str(value["value"])
-
             if current_value == "ON":
                 bucket["on_count"] += 1
             elif current_value == "OFF":
                 bucket["off_count"] += 1
-
             if current_value not in bucket["distinct_values"]:
                 bucket["distinct_values"].append(current_value)
-
             if bucket["last_event_time"] is None or event_time_ms >= bucket["last_event_time"]:
                 bucket["last_event_time"] = event_time_ms
                 bucket["last_state"] = current_value
 
         elif sensor_type == "alarm":
             current_value = bool(value["value"])
-
             if current_value:
                 bucket["true_count"] += 1
             else:
                 bucket["false_count"] += 1
-
             if current_value not in bucket["distinct_values"]:
                 bucket["distinct_values"].append(current_value)
-
             if bucket["last_event_time"] is None or event_time_ms >= bucket["last_event_time"]:
                 bucket["last_event_time"] = event_time_ms
                 bucket["last_value"] = current_value
 
     def build_result(self, key, window_start_ms: int, window_end_ms: int, bucket: dict) -> dict:
-        window_start = datetime.fromtimestamp(window_start_ms / 1000.0).strftime('%H:%M:%S')
-        window_end = datetime.fromtimestamp(window_end_ms / 1000.0).strftime('%H:%M:%S')
+        """
+        формування результатів вікна
+        :param key:
+        :param window_start_ms:
+        :param window_end_ms:
+        :param bucket:
+        """
+        window_start = datetime.fromtimestamp(window_start_ms / 1000.0, tz=timezone.utc).strftime('%H:%M:%S')
+        window_end = datetime.fromtimestamp(window_end_ms / 1000.0, tz=timezone.utc).strftime('%H:%M:%S')
         result_time = int(time.time() * 1000)
-
         max_event_time = bucket["max_event_time"]
         latency = result_time - max_event_time if max_event_time > 0 else 0
-
         max_publish_time = bucket["max_publish_time"]
         end_to_end_latency = result_time - max_publish_time if max_publish_time > 0 else 0
-
         fire_index = bucket["fire_index"]
         is_late_firing = fire_index > 1
         sensor_type = bucket["sensor_type"]
@@ -250,7 +282,6 @@ class CollectAll(KeyedProcessFunction):
         if sensor_type == "counter":
             first_value = bucket["first_value"] if bucket["first_value"] is not None else 0.0
             last_value = bucket["last_value"] if bucket["last_value"] is not None else 0.0
-
             return {
                 "datastream_id": key,
                 "window": f"{window_start} - {window_end}",
@@ -273,7 +304,6 @@ class CollectAll(KeyedProcessFunction):
 
         elif sensor_type == "analog":
             average = bucket["sum_value"] / bucket["count"] if bucket["count"] > 0 else 0.0
-
             return {
                 "datastream_id": key,
                 "window": f"{window_start} - {window_end}",
@@ -315,13 +345,11 @@ class CollectAll(KeyedProcessFunction):
                 "fire_index": fire_index,
                 "is_late_firing": is_late_firing,
             }
-
         else:
             true_count = bucket["true_count"]
             false_count = bucket["false_count"]
             total_count = bucket["count"]
             true_ratio = true_count / total_count if total_count > 0 else 0.0
-
             return {
                 "datastream_id": key,
                 "window": f"{window_start} - {window_end}",
@@ -346,10 +374,15 @@ class CollectAll(KeyedProcessFunction):
             }
 
     def process_element(self, value: dict, ctx: 'KeyedProcessFunction.Context'):
+        """
+        обробка нової події, оновлення bucket, формування результату
+        :param value:
+        :param ctx:
+        :return:
+        """
         event_time_ms = int(datetime.fromisoformat(value["event_time"]).timestamp() * 1000)
         publish_time_ms = int(datetime.fromisoformat(value["publish_time"]).timestamp() * 1000)
         arrival_time_ms = int(time.time() * 1000)
-
         window_start_ms, window_end_ms = self.get_window_bounds(event_time_ms)
         cleanup_time_ms = window_end_ms + self.allowed_lateness_ms
         current_watermark = ctx.timer_service().current_watermark()
@@ -365,14 +398,11 @@ class CollectAll(KeyedProcessFunction):
             ctx.timer_service().register_event_time_timer(bucket["main_timer"])
             ctx.timer_service().register_event_time_timer(bucket["cleanup_timer"])
         current_seq = value["seq"]
-
         if current_seq in bucket["seen_seq"]:
             return
         bucket["seen_seq"].add(current_seq)
-
         self.update_bucket(bucket, value, event_time_ms, publish_time_ms)
         self.save_bucket(window_start_ms, bucket)
-
         if not bucket["first_emitted"] and current_watermark >= bucket["main_timer"]:
             bucket["first_emitted"] = True
             bucket["fire_index"] += 1
@@ -383,10 +413,8 @@ class CollectAll(KeyedProcessFunction):
         if bucket["first_emitted"]:
             bucket["fire_index"] += 1
             self.save_bucket(window_start_ms, bucket)
-
             window_start = datetime.fromtimestamp(window_start_ms / 1000.0).strftime('%H:%M:%S')
             window_end = datetime.fromtimestamp(window_end_ms / 1000.0).strftime('%H:%M:%S')
-
             print(
                 f"[LATE FIRING] key={str(ctx.get_current_key())[:8]}... "
                 f"window={window_start}-{window_end} "
@@ -397,6 +425,11 @@ class CollectAll(KeyedProcessFunction):
             return
 
     def on_timer(self, timestamp: int, ctx: 'KeyedProcessFunction.OnTimerContext'):
+        """
+        таймери для пешого та повторного спрацювання вікна
+        :param timestamp:
+        :param ctx:
+        """
         main_window_start_ms = timestamp - self.window_size_ms + 1
         main_bucket = self.load_bucket(main_window_start_ms)
 
@@ -405,17 +438,14 @@ class CollectAll(KeyedProcessFunction):
                 main_bucket["first_emitted"] = True
                 main_bucket["fire_index"] += 1
                 self.save_bucket(main_window_start_ms, main_bucket)
-
                 yield self.build_result(
                     ctx.get_current_key(),
                     main_window_start_ms,
                     main_window_start_ms + self.window_size_ms,
                     main_bucket
                 )
-
         cleanup_window_start_ms = timestamp - self.window_size_ms - self.allowed_lateness_ms
         cleanup_bucket = self.load_bucket(cleanup_window_start_ms)
-
         if cleanup_bucket is not None:
             if timestamp == cleanup_bucket["cleanup_timer"]:
                 self.delete_bucket(cleanup_window_start_ms)
